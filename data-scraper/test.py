@@ -55,10 +55,10 @@ if course_url:
     try:
         page_resp = requests.get(course_url, headers=headers, timeout=15)
         page_resp.raise_for_status()
-        # print(f"[debug] Content-Type: {page_resp.headers.get('Content-Type', '')}")
-        # with open("body_preview.txt", "w") as file:
-        #     file.write(page_resp.text)
-        # exit()
+        print(f"[debug] Content-Type: {page_resp.headers.get('Content-Type', '')}")
+        with open("body_preview.txt", "w") as file:
+            file.write(page_resp.text)
+        exit()
         # Parse using bytes; let lxml auto-detect encoding from declarations/meta
         content_type = page_resp.headers.get('Content-Type', '').lower()
         content_bytes = page_resp.content
