@@ -165,7 +165,7 @@ def main():
     output_csv = "epfl_courses.csv"
     # List to store all course data
     all_courses = []
-    count = 0
+    # count = 0
     try:
         # Loop through each section and fetch data
         for section in section_codes:
@@ -176,9 +176,6 @@ def main():
                 data = response.json()
                 for course in data:
                     print(f"Adding {course.get('C_CODECOURS', '')}...")
-                    # count += 1
-                    # if count >= 5:
-                    #     break
                     # Try to fetch course page and extract credits
                     credits = ""
                     exam_form = ""
@@ -287,38 +284,32 @@ def main():
                         except Exception as page_err:
                             print(f"  Could not read credits from {course_url}: {page_err}")
                     # If no keywords or not enough, try to supplement with LLM
-                    keywords_method = "original"
-                    if len(keywords) < 5:
-                        course_text = " ".join([
-                            course.get("X_MATIERE", ""),
-                            resume_text or "",
-                            content_text or "",
-                        ])
-                        print(course_text)
-                        original_keywords = list(keywords)  # preserve current
-                        kws_llm = generate_keywords_llm(course_text, n_min=min_keywords, n_max=max_keywords)
-                        if kws_llm:
-                            # merge while preserving order and avoiding duplicates
-                            merged = []
-                            seen = set()
-                            for k in _normalize_kw_list(original_keywords):
-                                if k not in seen:
-                                    merged.append(k)
-                                    seen.add(k)
-                            for k in _normalize_kw_list(kws_llm):
-                                if k not in seen:
-                                    merged.append(k)
-                                    seen.add(k)
-                                if len(merged) >= max_keywords:
-                                    break
-                            keywords = merged
-                            keywords_method = "original+LLM" if original_keywords else "LLM"
-                        else:
-                            # fall back to whatever we had
-                            keywords = _normalize_kw_list(original_keywords)
-                            keywords_method = "original"
-                    else:
-                        break
+                    # keywords_method = "original"
+                    # if len(keywords) < 5:
+                    #     course_text = " ".join([
+                    #         course.get("X_MATIERE", ""),
+                    #         resume_text or "",
+                    #         content_text or "",
+                    #     ])
+                    #     print(course_text)
+                    #     original_keywords = list(keywords)  # preserve current
+                    #     kws_llm = generate_keywords_llm(course_text, n_min=min_keywords, n_max=max_keywords)
+                    #     if kws_llm:
+                    #         # merge while preserving order and avoiding duplicates
+                    #         merged = []
+                    #         seen = set()
+                    #         for k in _normalize_kw_list(original_keywords):
+                    #             if k not in seen:
+                    #                 merged.append(k)
+                    #                 seen.add(k)
+                    #         for k in _normalize_kw_list(kws_llm):
+                    #             if k not in seen:
+                    #                 merged.append(k)
+                    #                 seen.add(k)
+                    #             if len(merged) >= max_keywords:
+                    #                 break
+                    #         keywords = merged
+                    #         keywords_method = "original+LLM" if original_keywords else "LLM"
                     if str(credits).strip() != "0":
                         keywords = _normalize_kw_list(keywords)
                         all_courses.append({
@@ -340,10 +331,10 @@ def main():
                             "course_url": course.get("X_URL", ""),
                         })
                         print("credits: ", credits)
-                        print("keywords method: ", keywords_method)
-                        count += 1
-                        if count >= 5:
-                            break
+                        print("keywords: ", keywords)
+                        # count += 1
+                        # if count >= 5:
+                        #     break
                     # print("exam_form: ", exam_form)
                     # print("courses_time: ", courses_time)
                     # print("exercises_time: ", exercises_time)
@@ -351,8 +342,8 @@ def main():
                     # print("type: ", course_type)
                     # print("keywords: ", keywords)
                     # print("available_programs: ", available_programs)
-                if count >= 5:
-                    break
+                # if count >= 5:
+                #     break
             except Exception as e:
                 print(f"Failed to fetch data for section {section}: {e}")
     finally:
