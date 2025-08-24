@@ -16,7 +16,7 @@ function CoursesList() {
         console.log("API response:", data);
         setCourses(data.items || []);
       } catch (err) {
-        setError("Failed to load courses");
+        setError(err?.message || "Failed to load courses");
       } finally {
         setLoading(false);
       }

@@ -7,6 +7,14 @@ router.get('/', async (req, res) => {
   try {
     const { q, page = 1, pageSize = 50 } = req.query;
 
+    // Normalize paging from frontend (1-based page index)
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const pageSizeNum = Math.max(1, Math.min(parseInt(pageSize, 10) || 50, 100));
+
+    // Calculate LIMIT/OFFSET based on normalized values
+    const lim = pageSizeNum;
+    const off = (pageNum - 1) * pageSizeNum;
+
     // Only these are filter tags (others are descriptive in courses table)
     const ALLOWED_FILTER_TYPES = new Set(['lang', 'section', 'keywords', 'available_programs']);
 
@@ -37,12 +45,9 @@ router.get('/', async (req, res) => {
     }
     if (orBlocks.length) whereParts.push(orBlocks.join(' OR '));
 
-    const limit = Math.max(1, Math.min(parseInt(pageSize, 10) || 20, 100));
-    const offset = Math.max(0, ((parseInt(page, 10) || 1) - 1) * limit);
-
     // Defensive cast to numbers
-    const lim = Number.isFinite(limit) ? Number(limit) : 20;
-    const off = Number.isFinite(offset) ? Number(offset) : 0;
+    const limCheck = Number.isFinite(lim) ? Number(lim) : 20;
+    const offCheck = Number.isFinite(off) ? Number(off) : 0;
 
     // For HAVING: compute a per-type hit counter
     const selectHits = filters
@@ -70,12 +75,12 @@ router.get('/', async (req, res) => {
     const sql = `\n      ${selectSQL}\n      ${fromAndJoins}\n      ${whereSQL}\n      ${groupBySQL}\n      ${havingSQL}\n      ORDER BY c.id DESC\n      LIMIT ${lim} OFFSET ${off}\n    `;
 
     // Params order must follow the appearance of "?" in SQL:
-    // 1) selectHits (hitParams), 2) WHERE parts (params)
+    // 1) selectHits (hitParams), 2) WHERE parts (params), 3) LIMIT and OFFSET
     const allParams = [...hitParams, ...params];
     console.log('SQL to run:', sql);
     console.log('Query params:', allParams);
     const [rows] = await db.execute(sql, allParams);
-    res.json({ items: rows, page: Number(page), pageSize: limit });
+    res.json({ items: rows, page: pageNum, pageSize: lim });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'failed to load courses' });

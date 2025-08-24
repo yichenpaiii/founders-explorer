@@ -1,10 +1,15 @@
-export async function getCourses() {
+export async function getCourses({ page, pageSize, search } = {}) {
   try {
-    const res = await fetch("http://localhost:3000/api/courses");
+    const url = new URL("/api/courses", "http://localhost:3000");
 
-    // Check status before attempting to read the body
+    // Append query params if provided
+    if (page != null) url.searchParams.set("page", String(page));
+    if (pageSize != null) url.searchParams.set("pageSize", String(pageSize));
+    if (search) url.searchParams.set("q", search);
+
+    const res = await fetch(url.toString());
+
     if (!res.ok) {
-      // Try to capture any error text without consuming JSON twice
       const errorText = await res.text().catch(() => "");
       throw new Error(
         `HTTP ${res.status} ${res.statusText}${errorText ? ` - ${errorText}` : ""}`
