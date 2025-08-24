@@ -6,11 +6,17 @@ CREATE DATABASE IF NOT EXISTS epfl_courses_db
 -- Use this database
 USE epfl_courses_db;
 
--- Courses table
 CREATE TABLE IF NOT EXISTS courses (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  title VARCHAR(512) NOT NULL,
-  description TEXT
+  course_name VARCHAR(512) NOT NULL,
+  course_code VARCHAR(128) NOT NULL,
+  url VARCHAR(1024),
+  prof_name VARCHAR(512),
+  credits INT NOT NULL,
+  semester VARCHAR(64),
+  exam_form VARCHAR(128),
+  workload VARCHAR(128),
+  type ENUM('mandatory', 'optional') NOT NULL
 );
 
 -- Tag types table
@@ -19,12 +25,20 @@ CREATE TABLE IF NOT EXISTS tag_types (
   name VARCHAR(512) UNIQUE NOT NULL
 );
 
+-- Seed filter tag types
+INSERT IGNORE INTO tag_types (name) VALUES
+  ('lang'),
+  ('section'),
+  ('keywords'),
+  ('available_programs');
+
 -- Tags table
 CREATE TABLE IF NOT EXISTS tags (
   id INT AUTO_INCREMENT PRIMARY KEY,
   tag_type_id INT NOT NULL,
-  name VARCHAR(512) NOT NULL,
-  UNIQUE KEY unique_tag (tag_type_id, name),
+  name VARCHAR(1024) NOT NULL,
+  name_hash CHAR(64) GENERATED ALWAYS AS (SHA2(name, 256)) STORED,
+  UNIQUE KEY unique_tag (tag_type_id, name_hash),
   FOREIGN KEY (tag_type_id) REFERENCES tag_types(id) ON DELETE CASCADE
 );
 

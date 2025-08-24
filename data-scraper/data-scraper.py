@@ -1,4 +1,3 @@
-# Import necessary libraries
 import requests
 import pandas as pd
 import os
@@ -8,18 +7,54 @@ import re
 import json
 import html
 import os
+import csv
 from openai import OpenAI
 
-# Use deep-translator for translation
-from deep_translator import GoogleTranslator
-_translator_en = GoogleTranslator(source="auto", target="en")
 
 # Section codes from the screenshot
 
+
 section_codes = [
-    "AR", "CGC", "CDH", "CDM", "CMS", "ED", "GC", "EL",
-    "GM", "IN", "MX", "MA", "MT", "NX", "PH", "SIE", "SIQ", "SV", "SHS", "SC"
+    "AR", "CGC", "CDH", "CDM", "ED", "GC", "EL",
+    "GM", "IN", "MX", "MA", "MT", "NX", "PH", "SIE", "SIQ", "SV", "SHS", "SC",
+    "EDAM", "EDAR", "EDBB", "EDCB", "EDCE", "EDCH", "EDDH", "EDEE", "EDEY", "EDFI",
+    "EDIC", "EDMA", "EDME", "EDMI", "EDMS", "EDMT", "EDMX", "EDNE", "EDPO", "EDPY", "EDRS", "EDLS"
 ]
+
+# Mapping from full section names to abbreviations (case-insensitive)
+SECTION_ABBREV = {
+    "section of architecture": "AR",
+    "section of chemistry and chemical engineering": "CGC",
+    "special mathematics courses": "CMS",
+    "section of civil engineering": "GC",
+    # spelling varies between Electronic/Electronical in some pages
+    "section of electrical and electronical engineering": "EL",
+    "section of electrical and electronic engineering": "EL",
+    "section of mechanical engineering": "GM",
+    "section of computer science": "IN",
+    "section of materials science and engineering": "MX",
+    "section of mathematics": "MA",
+    "section of microtechnics": "MT",
+    "neuro-x section": "NX",
+    "section of physics": "PH",
+    "section of environmental sciences and engineering": "SIE",
+    "quantum science and engineering section": "SIQ",
+    "section of life sciences engineering": "SV",
+    "humanities and social sciences program": "SHS",
+    "section of communication systems": "SC",
+}
+
+# Valid codes set (existing codes plus mapped values)
+# VALID_SECTION_CODES = set(section_codes) | set(SECTION_ABBREV.values())
+VALID_SECTION_CODES = set(SECTION_ABBREV.values())
+
+# Normalize a raw section string for matching
+_def_ws_re = re.compile(r"\s+")
+
+def _norm(s: str) -> str:
+    s = (s or "").strip()
+    s = _def_ws_re.sub(" ", s)
+    return s
 
 # HTTP headers for polite requests
 headers = {
@@ -98,8 +133,8 @@ def _split_keywords(raw: str):
         # If it's a Python-like repr list, strip outer brackets/quotes
         if s.startswith("[") and s.endswith("]"):
             s = s[1:-1]
-    # Now split on common separators, including slashes and bullets
-    parts = re.split(r"(?:\n|,|;|\||\u2022|\u2027|•|·|-|—|/|\s+/\s+)", s)
+    # Split on commas, semicolons, bullets, slashes, or spaced hyphens (" - ").
+    parts = re.split(r"(?:\n|,|;|\||\u2022|\u2027|•|·|/|\s+/\s+|\s-\s)", s)
     # Clean up quotes and whitespace
     cleaned = []
     for p in parts:
@@ -110,9 +145,35 @@ def _split_keywords(raw: str):
 
 def parse_keywords_field(raw):
     parts = _split_keywords(raw)
-    parts = [_fix_mojibake(p) for p in parts]
+    parts = [_fix_mojibake(p).rstrip('.\n') for p in parts]
     return _normalize_kw_list(parts)
 
+def simplify_program_name(prog: str) -> str:
+    if not prog:
+        return prog
+    parts = [p.strip() for p in prog.split(",")]
+    if not parts:
+        return prog
+    base = parts[0]
+    rest = " ".join(parts[1:])
+    # Drop year-like tokens (4 digits with dash)
+    rest = re.sub(r"\b\d{4}(?:-\d{4})?\b", "", rest).strip()
+    # Replace Bachelor -> BA, Master -> MA
+    rest = rest.replace("Bachelor", "BA").replace("Master", "MA")
+    # Extract semester number if present
+    m = re.search(r"semester\s*(\d+)", rest, flags=re.I)
+    sem = f"{m.group(1)}" if m else ""
+    if "BA" in rest or "MA" in rest:
+        if sem:
+            # Extract BA/MA abbreviation only
+            abbrev_match = re.search(r"\b(BA|MA)\b", rest)
+            abbrev = abbrev_match.group(1) if abbrev_match else rest.strip()
+            return f"{base} {abbrev}{sem}"
+        else:
+            return f"{base} {rest.strip()}"
+    else:
+        return f"{base} {rest}".strip()
+    
 def generate_keywords_llm(text, n_min=min_keywords, n_max=max_keywords):
     """Generate keywords using OpenAI API if OPENAI_API_KEY is set"""
     try:
@@ -138,34 +199,14 @@ def generate_keywords_llm(text, n_min=min_keywords, n_max=max_keywords):
         print("[warn] LLM keyword generation failed:", e)
         return []
 
-# Translate a list of keywords to English using deep_translator (GoogleTranslator)
-def translate_keywords_to_en(keywords, source_lang="auto"):
-    """Translate keywords list to English using deep_translator.GoogleTranslator."""
-    if not keywords:
-        return keywords
-    out = []
-    for kw in keywords:
-        kw = (kw or "").strip()
-        if not kw:
-            continue
-        try:
-            # Avoid translating if it already looks English (basic heuristic)
-            if re.fullmatch(r"[a-z0-9 \-_/&.'()]+", kw.lower()):
-                out.append(kw.lower())
-                continue
-            translated = _translator_en.translate(kw)
-            if translated:
-                out.append(translated.strip().lower())
-        except Exception as e:
-            print("[warn] Keyword translation failed for", repr(kw), ":", e)
-            out.append(kw.lower())
-    return _normalize_kw_list(out)
-
 def main():
     output_csv = "epfl_courses.csv"
-    # List to store all course data
-    all_courses = []
-    # count = 0
+    headers_list = ["course_code","lang","section","semester","prof_name","course_name","credits","exam_form","workload","type","keywords","available_programs","course_url"]
+    with open(output_csv, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(headers_list)
+    unknown_sections = set()
+    all_programs = set()
     try:
         # Loop through each section and fetch data
         for section in section_codes:
@@ -179,9 +220,7 @@ def main():
                     # Try to fetch course page and extract credits
                     credits = ""
                     exam_form = ""
-                    courses_time = ""
-                    exercises_time = ""
-                    project_time = ""
+                    workload = ""
                     course_type = ""
                     keywords = []
                     available_programs = []
@@ -222,47 +261,58 @@ def main():
                             # Type (prefer EN, fallback FR)
                             course_type = _et_text(root, "//enseignement/typecourss/code[@langue='en']") or \
                                         _et_text(root, "//enseignement/typecourss/code[@langue='fr']") or course_type
-                            # Times under enseignement/details/detail
-                            label_map = {
-                                "courses": "courses_time",
-                                "cours": "courses_time",
-                                "exercises": "exercises_time",
-                                "exercices": "exercises_time",
-                                "project": "project_time",
-                                "projet": "project_time",
-                            }
-                            for det in root.findall(".//enseignement/details/detail"):
-                                label_en = _et_text(det, "code[@langue='en']").lower()
-                                label_fr = _et_text(det, "code[@langue='fr']").lower()
+                            # Times under a single <gps> -> compute a single workload
+                            # Only consider the first <gps> under <gpss> to avoid duplicates across programs
+                            weekly_total = 0.0
+                            semester_total = 0.0
+                            # Choose context: first <gps> if present, else fall back to the whole document
+                            gps_nodes = root.xpath("//gpss/gps") if hasattr(root, 'xpath') else []
+                            ctx = gps_nodes[0] if gps_nodes else root
+                            for det in ctx.findall(".//enseignement/details/detail"):
+                                # only consider course/exercise/project entries (EN or FR)
+                                label_en = (_et_text(det, "code[@langue='en']") or "").lower()
+                                label_fr = (_et_text(det, "code[@langue='fr']") or "").lower()
                                 label = label_en or label_fr
-                                target = label_map.get(label, None)
-                                if not target:
+                                if label not in {"courses", "cours", "exercises", "exercices", "project", "projet"}:
                                     continue
                                 quant = _et_text(det, "quantite")
                                 freq = _et_text(det, "frequences/code[@langue='en']") or _et_text(det, "frequences/code[@langue='fr']")
-                                composed = (f"{quant} {freq}".strip() if (quant or freq) else "").strip()
-                                if composed:
-                                    if target == "courses_time":
-                                        courses_time = composed
-                                    elif target == "exercises_time":
-                                        exercises_time = composed
-                                    elif target == "project_time":
-                                        project_time = composed
+                                # extract numeric quantity from quant
+                                num = 0.0
+                                try:
+                                    import re as _re
+                                    m = _re.search(r"[\d.]+", quant or "")
+                                    if m:
+                                        num = float(m.group(0))
+                                except Exception:
+                                    num = 0.0
+                                freq_l = (freq or "").lower()
+                                if "per week" in freq_l or "hebdo" in freq_l:
+                                    weekly_total += num
+                                else:
+                                    # default to per semester if not explicitly per week
+                                    semester_total += num
+                            # finalize workload string
+                            if weekly_total > 0:
+                                # prefer weekly if any part is weekly
+                                workload = f"{int(weekly_total) if weekly_total.is_integer() else weekly_total}hrs/week"
+                            elif semester_total > 0:
+                                workload = f"{int(semester_total) if semester_total.is_integer() else semester_total}hrs/semester"
+                            else:
+                                workload = ""
                             kw_block_nodes = root.xpath("//texte[@var='RUBRIQUE_MOTS_CLES']")
                             if kw_block_nodes:
                                 kw_block = kw_block_nodes[0]
                                 paras = [("".join(p.itertext())).strip() for p in kw_block.xpath(".//p")]
                                 raw = " ".join([p for p in paras if p])
                                 keywords = parse_keywords_field(raw)
-                                # Detect language (simple heuristic) and translate if not English
-                                kw_lang = course.get("C_LANGUEENS", "").lower()
-                                if not kw_lang.startswith("en"):
-                                    keywords = translate_keywords_to_en(keywords, source_lang=kw_lang if kw_lang else "auto")
                             available_programs = [node.text.strip() for node in root.xpath("//gps/x_gps[@langue='en']")]
                             credits = _fix_mojibake(credits)
                             exam_form = _fix_mojibake(exam_form)
                             course_type = _fix_mojibake(course_type)
-                            available_programs = [_fix_mojibake(x) for x in available_programs]
+                            available_programs = [simplify_program_name(_fix_mojibake(x)) for x in available_programs]
+                            for _p in available_programs:
+                                all_programs.add(_p)
                             # Extract resume/summary and content blocks
                             try:
                                 resume_nodes = root.xpath("//texte[@var='RUBRIQUE_RESUME']") or []
@@ -310,27 +360,39 @@ def main():
                     #                 break
                     #         keywords = merged
                     #         keywords_method = "original+LLM" if original_keywords else "LLM"
+                    # --- Section abbreviation mapping ---
+                    sec_raw = course.get("C_SECTION", "")
+                    sec_norm = _norm(str(sec_raw))
+                    # If already a known code, keep it; otherwise try to map from full name
+                    if sec_norm.upper() in VALID_SECTION_CODES:
+                        section_code = sec_norm.upper()
+                    else:
+                        section_code = SECTION_ABBREV.get(sec_norm.lower())
+                        if not section_code:
+                            unknown_sections.add(sec_norm)
+                            section_code = sec_norm  # keep original for CSV so we can spot it
                     if str(credits).strip() != "0":
                         keywords = _normalize_kw_list(keywords)
-                        all_courses.append({
-                            "course_code": course.get("C_CODECOURS", ""),
-                            "lang": course.get("C_LANGUEENS", ""),
-                            "program_term": course.get("C_PEDAGO", ""),
-                            "section": course.get("C_SECTION", ""),
-                            "semester": course.get("C_SEMESTRE", ""),
-                            "prof_name": course.get("X_LISTENOM", ""),
-                            "course_name": course.get("X_MATIERE", ""),
-                            "credits": credits,
-                            "exam_form": exam_form,
-                            "courses_time": courses_time,
-                            "exercises_time": exercises_time,
-                            "project_time": project_time,
-                            "type": course_type,
-                            "keywords": keywords,
-                            "available_programs": available_programs,
-                            "course_url": course.get("X_URL", ""),
-                        })
+                        row = [
+                            course.get("C_CODECOURS", ""),
+                            course.get("C_LANGUEENS", ""),
+                            section_code,
+                            course.get("C_SEMESTRE", ""),
+                            course.get("X_LISTENOM", ""),
+                            course.get("X_MATIERE", ""),
+                            credits,
+                            exam_form,
+                            workload,
+                            course_type,
+                            keywords,
+                            available_programs,
+                            course.get("X_URL", "")
+                        ]
+                        with open(output_csv, "a", newline="", encoding="utf-8") as f:
+                            writer = csv.writer(f)
+                            writer.writerow(row)
                         print("credits: ", credits)
+                        print("workload: ", workload)
                         print("keywords: ", keywords)
                         # count += 1
                         # if count >= 5:
@@ -347,13 +409,10 @@ def main():
             except Exception as e:
                 print(f"Failed to fetch data for section {section}: {e}")
     finally:
-        try:
-            # Convert to DataFrame
-            df = pd.DataFrame(all_courses)
-            df.to_csv(output_csv, index=False)
-            print(f"Saved {len(df)} rows to {output_csv}")
-        except Exception as save_err:
-            print(f"[error] Failed to save CSV: {save_err}")
+        # Print unique simplified available programs (built during processing)
+        print("Unique simplified available programs:", all_programs)
+        if unknown_sections:
+            print("Unmapped sections (please update mapping):", sorted(unknown_sections))
 
 if __name__ == "__main__":
     main()

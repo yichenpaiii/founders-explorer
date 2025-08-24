@@ -14,94 +14,117 @@
   <url-js-nav>itffichecours.txt?path=EPFL.Etu.FicheCours.GlobalNav_js</url-js-nav>
   <langue>en</langue>
   <n_annee>2025</n_annee>
-  <i_section>32211080</i_section>
-  <i_niveau></i_niveau>
-  <i_uniteacad>32211080</i_uniteacad>
+  <i_section>942293</i_section>
+  <i_niveau>6683117</i_niveau>
+  <i_uniteacad>942293</i_uniteacad>
   <i_periodeacad>2840683608</i_periodeacad>
-  <i_periodeacadcontenu>2305107546</i_periodeacadcontenu>
-  <b_edoc>1</b_edoc>
+  <i_periodeacadcontenu>2840683608</i_periodeacadcontenu>
+  <b_edoc>0</b_edoc>
   <b_mineur>0</b_mineur>
-  <x_section>Management of technology (edoc)</x_section>
-  <c_section>EDMT</c_section>
-  <c_faculte></c_faculte>
-  <x_facultefr></x_facultefr>
-  <x_faculteen></x_faculteen>
-  <url>!itffichecours.htm?ww_i_matiere=399868361&amp;ww_x_anneeAcad=2840683608&amp;ww_i_section=32211080&amp;ww_i_niveau=</url>
+  <x_section>Architecture</x_section>
+  <c_section>AR</c_section>
+  <c_faculte>ENAC</c_faculte>
+  <x_facultefr>Faculté de l&apos;environnement naturel, architectural et construit</x_facultefr>
+  <x_faculteen>School of Architecture, Civil and Environmental Engineering</x_faculteen>
+  <url>!itffichecours.htm?ww_i_matiere=4524310807&amp;ww_x_anneeAcad=2840683608&amp;ww_i_section=942293&amp;ww_i_niveau=6683117</url>
   <fiche>
-   <report>1946250234</report>
-   <reportxsl>1946250250</reportxsl>
-   <fiche id="3974564717" langue="en">
+   <report>1696552884</report>
+   <reportxsl>1696552963</reportxsl>
+   <fiche id="4524311131" langue="fr">
     <texte var="ENTETE_LOGO" type="header">
-<img src="/imoniteur_ISAP/!docsStockes.telecharger?ww_x_id=0D05233C24C03583D5FBCF8B5A85D177" style="height:0.7cm; float: right;"/>
+<img src="/imoniteur_ISAP/!docsStockes.telecharger?ww_x_id=991EF1522A865413E1818E4269A190E0" style="height:0.7cm; float: right;"/>
     </texte>
     <texte var="ITEMPLAN_PERIODE_ENTETE" type="header">
-2024-2025 COURSE BOOKLET
+2025-2026 LIVRET DE COURS
     </texte>
     <texte var="ITEMPLAN_CODE" type="header">
-MGT-623
+AR-301(ag)
     </texte>
     <texte var="ITEMPLAN_XMATIERE" type="header">
-Publishing in Management, Technology and Innovation
+Théorie et critique du projet BA5 (Fröhlich M. &amp; A.)
     </texte>
     <texte var="ITEMPLAN_XMATIERE_EN" type="header">
-Publishing in Management, Technology and Innovation
+Studio BA6 (Fröhlich M. &amp; A.)
     </texte>
     <texte var="TITRE_ENSEIGNANTS" type="header">
-Lecturers
+Enseignants
     </texte>
     <texte var="ITEMPLAN_ENSEIGNANTS" type="header">
-Foray Dominique, Gruber Marc
+Fröhlich Martin, Pratas Borges Tiago André
     </texte>
     <texte var="TITRE_LANGUE" type="header">
-Language of teaching
+Langue d&apos;enseignement
     </texte>
     <texte var="ITEMPLAN_MATIERE_LANGUE" type="header">
-English
+français / anglais
     </texte>
     <texte var="TITRE_SECTIONS" type="header">
 Cursus
     </texte>
     <texte var="ITEMPLAN_SECTIONS" type="header">
-Management of technology (edoc)(2024-2025, EDMT 2024-25)
+Architecture(2025-2026, AR - Bachelor 2022)<br/>Architecture(2025-2026, AR - Bachelor 2023)<br/>Mobilité AR(2025-2026, AR - Mobilité 2025)<br/>Passerelle HES - AR(2025-2026, AR - HES 2025)
     </texte>
     <texte var="ITEMPLAN_SEMESTRES" type="header">
-<table><tbody><tr><td>Semester</td><td align="center">Mand.</td><td align="center">Option</td><td align="center">Filières</td></tr><tr><td></td><td align="center"></td><td align="center">x</td><td align="center"></td></tr></tbody></table>
+<table><tbody><tr><td>Semestre</td><td align="center">Oblig.</td><td align="center">Option</td><td align="center">Filières</td></tr><tr><td>BA5, BA5</td><td align="center">x</td><td align="center"></td><td align="center"></td></tr><tr><td>H</td><td align="center"></td><td align="center">x</td><td align="center"></td></tr><tr><td>H</td><td align="center">x</td><td align="center"></td><td align="center"></td></tr></tbody></table>
     </texte>
     <texte var="TITRE_ECTS_OU_COEFFS" type="header">
-Credits
+Crédits
     </texte>
     <texte var="ITEMPLAN_ECTS_OU_COEFF" type="header">
-1
+12
+    </texte>
+    <texte var="AFFICHAGE_TEXTE_RETRAIT_LIB" stl="title" type="header">
+Retrait
+    </texte>
+    <texte var="AFFICHAGE_TEXTE_RETRAIT_NON_AUTORISE_LIB" type="header">
+Non autorisé
+    </texte>
+    <texte var="AFFICHAGE_TEXTE_RETRAIT_NON_AUTORISE_LIB_LONG" type="header">
+Il n&apos;est pas autorisé de se retirer de cette matière après le délai d&apos;inscription.
     </texte>
     <texte var="TITRE_SESSION_EXA" type="header">
 Session
     </texte>
     <texte var="ITEMPLAN_SESSION_EXA" type="header">
+Hiver
     </texte>
     <texte var="TITRE_CHARGE_TOTALE" type="header">
-Workload
+Charge
     </texte>
     <texte var="ITEMPLAN_CHARGE_TOTALE" type="header">
-30h
+360h
     </texte>
     <texte var="TITRE_FORME_EXA" type="header">
-Exam
+Examen
     </texte>
     <texte var="ITEMPLAN_FORME_EXA" type="header">
-Multiple
+Pendant le semestre
     </texte>
     <texte var="TITRE_NBINSCRITS" type="header">
-Number of positions
+Nombre de places
     </texte>
     <texte var="ITEMPLAN_NBINSCRITS_MAX" type="header">
     </texte>
     <texte var="ITEMPLAN_SANS_RETRAIT" type="header">
+It is not allowed to withdraw from this subject after the registration deadline.
+    </texte>
+    <texte var="TITRE_SEMESTRE" type="header">
+Semestre
+    </texte>
+    <texte var="ITEMPLAN_PERIODE_SEMESTRE" type="header">
+Automne
+    </texte>
+    <texte var="TITRE_SEMAINES" type="header">
+Semaines
+    </texte>
+    <texte var="ITEMPLAN_SEMAINES" type="header">
+14
     </texte>
     <texte var="TITRE_HEURECONTACT" type="header">
-Hours
+Heures
     </texte>
     <texte var="ITEMPLAN_NBHEURES_SEMAINE" type="header">
-28
+6 hebdo
     </texte>
     <texte var="ITEMPLAN_NBHEURES_LIPS_2015" stl="table-heures" type="header">
 
@@ -109,15 +132,20 @@ Hours
       <tbody>
         
     <tr>
-      <td style="padding: 0cm 0px 0px 0.3cm; color: #646262; width: 83px;">Courses</td>
-      <td style="padding: 0cm 0 0; color: #333;">28</td>
+      <td style="padding: 0cm 0px 0px 0.3cm; color: #646262; width: 83px;">Cours</td>
+      <td style="padding: 0cm 0 0; color: #333;">2 hebdo</td>
+    </tr>
+    
+    <tr>
+      <td style="padding: 0cm 0px 0px 0.3cm; color: #646262; width: 83px;">Projet</td>
+      <td style="padding: 0cm 0 0; color: #333;">4 hebdo</td>
     </tr>
     
       </tbody>
     </table>
     </texte>
     <texte var="ITEMPLAN_CURSUS" type="header">
-<table><tbody><tr><td valign="top">Study plan</td><td align="center" valign="top">Semester</td><td align="center" valign="top">Mand.</td><td align="center" valign="top">Option</td><td align="center" valign="top">Filières</td></tr><tr><td valign="top">EDMT - Management of Technology 2024-25</td><td valign="top"></td><td align="center" valign="top"></td><td align="center" valign="top">x</td><td align="center" valign="top"></td></tr></tbody></table>
+<table><tbody><tr><td valign="top">Plan d'étude </td><td align="center" valign="top">Semestre</td><td align="center" valign="top">Oblig.</td><td align="center" valign="top">Option</td><td align="center" valign="top">Filières</td></tr><tr><td valign="top">Architecture 2025-26</td><td valign="top">BA5</td><td align="center" valign="top">x</td><td align="center" valign="top"></td><td align="center" valign="top"></td></tr><tr><td valign="top">Mobilité 2025-26</td><td valign="top">H</td><td align="center" valign="top"></td><td align="center" valign="top">x</td><td align="center" valign="top"></td></tr><tr><td valign="top">Passerelle master HES AR 2025-26</td><td valign="top">H</td><td align="center" valign="top">x</td><td align="center" valign="top"></td><td align="center" valign="top"></td></tr></tbody></table>
     </texte>
     <texte var="ITEMPLAN_CURSUS_2015" stl="table-html" type="header">
 
@@ -132,48 +160,207 @@ Hours
           <tbody>
           
         <tr>
-          <td style="border-bottom: 1px solid #e0dfde; padding: 1mm 0 0 1mm;">Management of technology</td>
-          <td style="border-bottom: 1px solid #e0dfde; padding: 1mm 0;"></td>
+          <td style="padding: 1mm 0 0 1mm;">Architecture</td>
+          <td style="padding: 1mm 0;">BA5</td>
+          <td style="padding: 1mm 0;">Obl.</td>
+        </tr>
+        <tr>
+          <td style="padding: 1mm 0 0 1mm; background-color: #f2f2f2;">HES - AR</td>
+          <td style="padding: 1mm 0; background-color: #f2f2f2;">H</td>
+          <td style="padding: 1mm 0; background-color: #f2f2f2;">Obl.</td>
+        </tr>
+        <tr>
+          <td style="border-bottom: 1px solid #e0dfde; padding: 1mm 0 0 1mm;">Mob. AR</td>
+          <td style="border-bottom: 1px solid #e0dfde; padding: 1mm 0;">H</td>
           <td style="border-bottom: 1px solid #e0dfde; padding: 1mm 0;">Opt.</td>
         </tr>
           </tbody>
         </table>
     </texte>
     <texte var="LIB_RUBRIQUE_REMARQUE_PLAN" stl="title">
-Remark
+Remarque
     </texte>
     <texte var="RUBRIQUE_REMARQUE_PLAN" stl="text">
-March 5th from 10h00 until 18h00 and March 6th from 8h30 until 11h45
+Inscription faite par la section
     </texte>
     <texte var="LIB_RUBRIQUE_RESUME" stl="title">
-Summary
+Résumé
     </texte>
     <texte var="RUBRIQUE_RESUME" stl="text">
-The seminar aims to improve doctoral students&apos; competencies in management, technology, and innovation to publish their work in leading academic journals.
+Greenhouse Studies explore le potentiel des structures de serres dans le contexte des défis contemporains. Les ateliers de projet étudient les serres comme un type architectural sensible au climat, capable de transformer des structures existantes en espaces collectifs et communautaires.
     </texte>
     <texte var="LIB_RUBRIQUE_CONTENU" stl="title">
-Content
+Contenu
     </texte>
     <texte var="RUBRIQUE_CONTENU" stl="text">
-<p><b>Content</b></p>
-<p>The course is the result of a long-standing cooperation between the University of St. Gallen, EPFL, and ETH Zurich aimed at fostering research excellence in the field of management. This academic year the seminar will take place at <b>EPFL on March 5th and 6th , 2025.</b></p>
-<p>The seminar will address the following questions:</p>
-<ul>
-<li>How to set up research for academic journals?</li>
-<li>How to structure an academic paper for publication in selected journals?</li>
-<li>How to address editorial boards?</li>
-<li>How to cope with editorial recommendations?</li>
-<li>How to set up a publication strategy?</li>
-</ul>
-<p>Students will analyze and discuss leading journals in the area of strategy, management, technology, and innovation. In addition to the journal analysis, we will discuss selected papers in management and innovation research. Registration is to be done through IS-Academia.</p>
+<p> </p>
+<p><strong>GREENHOUSE STUDIES II</strong></p>
+<p>'Clothing as an extension of our skin helps to store and to channel energy, ...If clothing is an extension of our private skins to store and channel our own heat and energy, housing is a collective means of achieving the same end for the family or the group. Housing as shelter is an extension of our bodily heat-control mechanisms - a collective skin or garment.'</p>
+<p><em>Marshall McLuhan, Understanding Media: The Extensions of Man (Cambridge: MIT Press, 1911)</em></p>
+<p><em><br /></em></p>
+<p>Following a first design studio on greenhouses, Laboratory EAST presents Greenhouse Studies II - The collective (Fall semester), and Greenhouse studies III - The common (Spring semester), the laboratory's second and third interaction with a unique element in the history of architecture. The studio is interested in the multiple uses of greenhouse spaces outside the horticultural context. In Greenhouse Studies I, the design studio took a cross-sectional look at domestic greenhouses as a space for expanding the individual home. The greenhouse served as garden for vegetables, as passive heating device, or extra living room. Through superposition, juxtaposition, or all-over solutions, the greenhouse spatial structure constituted a new thermal buffer zone that interacted differently with the existing volumes. In Greenhouse Studies II and III, the studio will continue the survey, aware of new dimensions: from the individual to the collective, from the collective to the common, from the small villa scale to the collective housing, from collective housing to common programs. Together we will build on these concepts while exploring greenhouse-like solutions. What are the implications of such change? The results will contribute to an open-source, collaborative database that will grow each semester.</p>
+<p> </p>
+<p><strong>Type and Typology as framework</strong></p>
+<p>Typology is recognised as a fundamental concept for a better understanding of architecture and its history. It serves as a basic framework, a kind of tacit backbone for the organisation of architectural knowledge and can also be a tool for generating new architectural solutions. Some argue that typology is as old as architecture itself, as it involves the reproduction of dominant types and models that are deeply rooted in socio-cultural realities. Alternatively, it can be said that architecture responds to new social and economic needs by inventing or revising existing types. Typology and types traditionally interact with the formal dimension (buildings organised by a common form or element) and the functional dimension (buildings organised by a common function). However, this focus has often overlooked other, less tangible possibilities, such as structural relationships between types and climate in architecture.</p>
+<p> </p>
+<p><strong>Climatic Type as central theme</strong></p>
+<p>Conservatories, greenhouses, glasshouses, forcing houses, hothouses, invernaderos in Spanish, orangeries, jardins d' hiver or serres in French - many are the terms associated with the idea of housing plants. All of these artefacts have a common goal: to create a climate adapted to plant life. Although greenhouses were conceived with a very precise objective, this climatic space quickly became an exhibition space, a social space, and even a space for celebrations before it fell into disuse. In the second half of the 20th century, greenhouse-based solutions made a comeback, fostering solar architecture and reinforcing the foundations of bioclimatic architecture in western societies. During this time, horticulture continued developing greenhouses as productive spaces, and innovations led to intensive fields of production. In absolute terms, it is not the form or function that characterizes the greenhouse but the definition of a space with specific climatic conditions. In most cases, using wood or metal structures and transparent materials such as glass, these structures keep a very low ratio between the material used and the enclosed space, offering the most with the least. The characterization of the greenhouse as an artefact of a climatic nature suggests that the greenhouse as a type does not depend on scale or size. Since its inception, the multiform and multifunctional greenhouse space has been transformed into a social space with very specific microclimatic characteristics.</p>
+<p> </p>
+<p><strong>The collective</strong></p>
+<p>'The luxury of unused space! This was also an attempt to test an idea. The space changes independently. Rooms change in space through the growing and dying of plants. It should be attractive for the interior designer to experience such autonomous spatial changes.'</p>
+<p><em>In LOG ID (ed.), Gruene Archen-Harmonie mit Pflanzen leben das Modell der Gruppe LOG ID (Frankfurt am Main: Fricke Verlag, 1983)</em></p>
+<p> </p>
+<p>Unfolding over the course of two semesters, both design studios will explore the dynamics between greenhouses, greenhouse components or greenhouse functions and existing building structures as architectural forms, climatic spaces and temporary uses of space:</p>
+<p> </p>
+<p><strong>Greenhouse Studies II</strong></p>
+<p>The collective,  the design studio will focus on the renovation of collective residential architecture in the Romandie. When renovating existing monotonous buildings from the construction boom of the 1970s, the potential for conversion is overlaid with the climate aspect of the greenhouse. The goal is to renovate the building, enhance its existing features, explore scenarios of densification, expand existing programmes or introduce new ones, enrich living comfort, and consider passive heating and cooling solutions. The design should prioritise the collective dimension, and wherever possible, test greenhouse-like solutions by focusing on concepts such as seasonal living, microclimatic diversity, and synergy of living spaces. Extending the building's lifespan involves considering materials, as well as exploring typological structures capable of accommodating change and a range of use cases. The development of both phases will be undertaken in groups consisting of two or three students, and a Seminar Day will comprise a series of multidisciplinary theoretical contributions from external experts.</p>
+<p>We will investigate the possible interactions between two different architectural spaces, and gain a better understanding of the typological transfers and climatic synergies between them. Greenhouse-like structures offer the opportunity to investigate prefabricated systems, test designs for deconstruction and reversibility in design thinking, and ultimately find a 'lighter' way to redesign existing buildings.</p>
+<p>By looking at greenhouses as specific built environments, the studio will formulate solutions based on the concept of architecture as atmosphere, while exploring its transformative potential. In addition, the studio will examine greenhouses as climate-responsive artefacts, exploring how seasons can change spaces, or, in other words, what it means to inhabit spaces seasonally. If we change clothes according to the seasons, should our buildings change too?</p>
+<p> </p>
+<p><strong>Practicalities</strong></p>
+<p>Each semester will be composed of two parts. The first part - Research on precedents - will be developed individually to expand the corpus of references and help us learn from existing buildings. The studio will collectively build a visual atlas made of peculiar, strange or remarkable case-studies. The design study will analyse the characteristics of the case studies, like: flexible use of space, evaluate their thermal behaviour throughout the seasons, formmaking aspects, thermical airflow and mechanics of openings. The key findings from this body of references will inform the design phase. In the second part - Design Studio - participants will develop their own design in groups of two or three.</p>
+<p> </p>
+<p><strong>Learning outcomes </strong></p>
+<p>By the end of the course, the student must be able to:</p>
+<p>Apply and present research capable to inform a design project</p>
+<p>Analyse and interpret critically an architectural work</p>
+<p>Formulate a problem and provide design-based solution</p>
+<p>Represent accurately a design proposal with drawings and models at multiple scales</p>
+<p>Develop a narrative and present arguments to specialised and non-specialised audiences</p>
+<p>Develop awareness about the implicit and explicit messages of an architectural project</p>
+<p>Work collaboratively and integrate knowledge from different disciplines</p>
+<p> </p>
+<p> </p>
+    </texte>
+    <texte var="LIB_RUBRIQUE_MOTS_CLES" stl="title">
+Mots-clés
+    </texte>
+    <texte var="RUBRIQUE_MOTS_CLES" stl="text">
+<p>Type / Typology</p>
+<p>Greenhouse</p>
+<p>Atmosphere</p>
+<p>Bioclimatic Architecture / Biophilic design</p>
+<p>Climatic Types / Thermodynamics</p>
+<p>Transformation / Reuse</p>
+<p>Energy Resources</p>
+<p>Collective Housing / Intermediate spaces / Inclusion</p>
+<p> </p>
+    </texte>
+    <texte var="LIB_RUBRIQUE_ACQUIS_FORMATION" stl="title">
+Acquis de formation
+    </texte>
+    <texte var="TITRE_OBJECTIFS_APPRENTISSAGE" stl="text">
+A la fin de ce cours l&apos;étudiant doit être capable de:<br/>
+    </texte>
+    <texte var="RUBRIQUE_ACQUIS_FORMATION" stl="text">
+<ul><li>Catégoriser</li><li>Comparer</li><li>Evaluer</li><li>Formuler une hypothèse</li><li>Visualiser</li><li>Explorer</li></ul>
+    </texte>
+    <texte var="LIB_RUBRIQUE_METHODE_ENSEIGNEMENT" stl="title">
+Méthode d&apos;enseignement
+    </texte>
+    <texte var="RUBRIQUE_METHODE_ENSEIGNEMENT" stl="text">
+<p>The course is designed to provide a rich learning experience through a variety of teaching methods. The course includes:</p>
+<p>-Case-study analysis: basic research on type development, examining significant works that are incorporated into a shared knowledge database;</p>
+<p>-Flipped Classroom: work in the design studio, where students develop their own positions on the topic using a building as a case study;</p>
+<p>-In-hands workshop: learning and developing various presentation techniques such as 3D printing;</p>
+<p>-Seminar day: organise and participate on a public seminar day where experts come together to discuss various aspects of the studio topic,</p>
+<p>-Fieltrip: The design studio includes a field trip to visit case-studies and enrich the learning experience.</p>
+<p>Progress checks and constructive feedback are provided, and individual and round-table presentations are held. Autonomous group discussions and supportive roundtables are encouraged throughout the semester.</p>
+<p> </p>
+    </texte>
+    <texte var="LIB_RUBRIQUE_TRAVAIL_ATTENDU" stl="title">
+Travail attendu
+    </texte>
+    <texte var="RUBRIQUE_TRAVAIL_ATTENDU" stl="text">
+<p>- to develop its own design work, contribute to team's work, and collaborative hands-on construction</p>
+<p>- to present the project by means of drawings, visualisations, oral presentations and models ranging from 1:200 to 1:5 scale, practical and manual skills.</p>
+<p>- to work both independently-autonomously, and collaboratively sharing common goals of the design studio</p>
+<p>- to active participate in the course, including lectures, roundtables, peer-to-peer discussions, mid-term and final presentation.</p>
+<p>- to active participate in the field trip, the seminar day, in the common research and collective design survey</p>
+<p>- to active participate in the design of the working environment in the studio</p>
+<p> </p>
+    </texte>
+    <texte var="LIB_RUBRIQUE_METHODE_EVALUATION" stl="title">
+Méthode d&apos;évaluation
+    </texte>
+    <texte var="RUBRIQUE_METHODE_EVALUATION" stl="text">
+<p>The course employs a continuous assessment method that combines a set of assignments and factors:</p>
+<p>- Enquiry and research phase (30%). This includes data survey, rigor and critical reasoning, graphic and verbal communication.</p>
+<p>- Project design and development (55%) with a focus on design concept, graphic implementation, model making and complex thinking. This includes conceptualization, spatial quality and architectural expression, site, programmatic strategy, process and progress, graphic and verbal communication, innovation and critical thinking.</p>
+<p>- Multiformat representation and effective oral communication  (15%)</p>
+<p>The participation of the student is expected throughout the course. Student engagement and self-assessment forms will support the evaluation throughout the semester.</p>
+<p>After each phase - Research / Seminar Day / Design reviews-a joint evaluation is carried out in an open dialogue with the entire group. The common goals, improvements and successes of the course are assessed and discussed.</p>
+<p> </p>
+    </texte>
+    <texte var="TITRE_RUBRIQUE_ENCADREMENT" stl="title">
+Encadrement
+    </texte>
+    <texte id="ENCADREMENT" stl="table">
+     <ligne>
+      <texte var="LIB_RUBRIQUE_OFFICE_HOURS" stl="text">
+Office hours
+      </texte>
+      <texte var="RUBRIQUE_OFFICE_HOURS" stl="textinline">
+Oui
+      </texte>
+     </ligne>
+     <ligne>
+      <texte var="LIB_RUBRIQUE_ASSISTANTS" stl="text">
+Assistants
+      </texte>
+      <texte var="RUBRIQUE_ASSISTANTS" stl="textinline">
+Oui
+      </texte>
+     </ligne>
+     <ligne>
+      <texte var="LIB_RUBRIQUE_FORUM_ELECTRONIQUE" stl="text">
+Forum électronique
+      </texte>
+      <texte var="RUBRIQUE_FORUM_ELECTRONIQUE" stl="textinline">
+Non
+      </texte>
+     </ligne>
+     <ligne>
+      <texte var="LIB_RUBRIQUE_AUTRES" stl="text">
+Autres
+      </texte>
+      <texte var="RUBRIQUE_AUTRES" stl="textinline">
+<p><strong>The course is held in englisch.</strong></p>
+<p>TEAM</p>
+<p>Tiago Borges,  Martin Fröhlich and Guests</p>
+<p> </p>
+<p><strong>Voyage d'étude</strong></p>
+<p>The design studio includes a study visit  to different collective housing projects from the second half of the 20th century and other more recent examples. The visit includes works by Rolf Schoch, Atelier 5, Log Id, Lacaton &amp; Vassal, Clauss Kahl Merz Atelier and Esch Sintzel. The proposed itinerary includes Lausanne-Bern-Basel-Mulhouse (FR)-Rixheim (FR)-Niffer (FR)-Bien-Lausanne. The study trip will take place between september 20th to 23rd.</p>
+<p>Estimated cost per student: 170 CHF (includes visits, travel and 2 nightsaccommodation).</p>
+<p>Travel support grant by the school is only available during the spring semester.</p>
+<p> </p>
+<p><strong>Remarques</strong></p>
+<p>This design studio will work closely with the course AR-442. While not mandatory, it is recommended to take AR-442 Comfort and architecture: sustainable strategies, as it provides training in specific software tools for climate analysis that will support the studio work.</p>
+      </texte>
+     </ligne>
+    </texte>
+    <texte var="TITRE_RUBRIQUE_RESSOURCES" stl="title">
+Ressources
+    </texte>
+    <texte var="LIB_RUBRIQUE_VDI" stl="subtitle">
+Service de cours virtuels (VDI)
+    </texte>
+    <texte var="RUBRIQUE_VDI" stl="subtext">
+Oui
+    </texte>
+    <texte var="LIB_RUBRIQUE_BIBLIOGRAPHIE" stl="subtitle">
+Bibliographie
+    </texte>
+    <texte var="RUBRIQUE_BIBLIOGRAPHIE" stl="subtext">
+<p>will be provided with a reader in Sept 2025</p>
     </texte>
    </fiche>
    <groupes>
     <groupe>
      <gpss>
-      <gps style="edoc-edmt" ordre="1">
-       <x_gps langue="fr">Management de la technologie (edoc), 2025-2026</x_gps>
-       <x_gps langue="en">Management of technology (edoc), 2025-2026</x_gps>
+      <gps style="bama_cyclebachelor-ar" ordre="1">
+       <x_gps langue="fr">Architecture, 2025-2026, Bachelor semestre 5</x_gps>
+       <x_gps langue="en">Architecture, 2025-2026, Bachelor semester 5</x_gps>
        <uniteOrg>
         <unite>
          <x_unite langue="fr">Ecole polytechnique fédérale de Lausanne</x_unite>
@@ -190,22 +377,389 @@ Content
        </periodeAcad>
        <periodePedago>
         <periode>
+         <x_periode langue="fr">Bachelor semestre 5</x_periode>
+         <x_periodeCADI langue="fr">BA5</x_periodeCADI>
+         <semestre>HIVER</semestre>
+         <x_periode langue="en">Bachelor semester 5</x_periode>
+         <x_periodeCADI langue="en">BA5</x_periodeCADI>
         </periode>
        </periodePedago>
-       <uniteAcad id="32211080" b_section="0">
+       <uniteAcad id="942293" b_section="1">
         <unite>
-         <x_unite langue="fr">Management de la technologie (edoc)</x_unite>
-         <x_uniteCourt langue="fr">EDMT</x_uniteCourt>
-         <x_unite langue="en">Management of technology (edoc)</x_unite>
-         <x_uniteCourt langue="en">EDMT</x_uniteCourt>
+         <x_unite langue="fr">Architecture</x_unite>
+         <x_uniteCourt langue="fr">AR</x_uniteCourt>
+         <x_unite langue="en">Architecture</x_unite>
+         <x_uniteCourt langue="en">AR</x_uniteCourt>
         </unite>
        </uniteAcad>
        <section>
         <unite>
-         <x_unite langue="fr"></x_unite>
-         <x_uniteCourt langue="fr"></x_uniteCourt>
-         <x_unite langue="en"></x_unite>
-         <x_uniteCourt langue="en"></x_uniteCourt>
+         <x_unite langue="fr">Architecture</x_unite>
+         <x_uniteCourt langue="fr">AR</x_uniteCourt>
+         <x_unite langue="en">Architecture</x_unite>
+         <x_uniteCourt langue="en">AR</x_uniteCourt>
+        </unite>
+       </section>
+       <itps>
+        <itp>
+         <enseignement>
+          <specialisations>
+          </specialisations>
+          <typecourss>
+           <code langue="fr">obligatoire</code>
+           <code langue="en">mandatory</code>
+          </typecourss>
+          <details>
+           <detail>
+            <quantite>2</quantite>
+            <code langue="fr">Cours</code>
+            <code langue="en">Courses</code>
+            <frequences>
+             <code langue="fr">Heure(s) hebdo x 14 semaines</code>
+             <code langue="en">Hour(s) per week x 14 weeks</code>
+            </frequences>
+            <frequencesCodes>
+             <code langue="fr">H hebdo</code>
+             <code langue="en">H hebdo</code>
+            </frequencesCodes>
+            <profs>
+             <prof>
+              <nom>Fröhlich</nom>
+              <prenom>Martin</prenom>
+              <sciper>225190</sciper>
+              <section>
+               <unite>
+                <x_unite langue="fr">Architecture</x_unite>
+                <x_uniteCourt langue="fr">AR</x_uniteCourt>
+                <x_unite langue="en">Architecture</x_unite>
+                <x_uniteCourt langue="en">AR</x_uniteCourt>
+               </unite>
+              </section>
+             </prof>
+             <prof>
+              <nom>Pratas Borges</nom>
+              <prenom>Tiago André</prenom>
+              <sciper>169804</sciper>
+              <section>
+               <unite>
+                <x_unite langue="fr">Architecture</x_unite>
+                <x_uniteCourt langue="fr">AR</x_uniteCourt>
+                <x_unite langue="en">Architecture</x_unite>
+                <x_uniteCourt langue="en">AR</x_uniteCourt>
+               </unite>
+              </section>
+             </prof>
+            </profs>
+           </detail>
+           <detail>
+            <quantite>4</quantite>
+            <code langue="fr">Projet</code>
+            <code langue="en">Project</code>
+            <frequences>
+             <code langue="fr">Heure(s) hebdo x 14 semaines</code>
+             <code langue="en">Hour(s) per week x 14 weeks</code>
+            </frequences>
+            <frequencesCodes>
+             <code langue="fr">H hebdo</code>
+             <code langue="en">H hebdo</code>
+            </frequencesCodes>
+            <profs>
+             <prof>
+              <nom>Fröhlich</nom>
+              <prenom>Martin</prenom>
+              <sciper>225190</sciper>
+              <section>
+               <unite>
+                <x_unite langue="fr">Architecture</x_unite>
+                <x_uniteCourt langue="fr">AR</x_uniteCourt>
+                <x_unite langue="en">Architecture</x_unite>
+                <x_uniteCourt langue="en">AR</x_uniteCourt>
+               </unite>
+              </section>
+             </prof>
+             <prof>
+              <nom>Pratas Borges</nom>
+              <prenom>Tiago André</prenom>
+              <sciper>169804</sciper>
+              <section>
+               <unite>
+                <x_unite langue="fr">Architecture</x_unite>
+                <x_uniteCourt langue="fr">AR</x_uniteCourt>
+                <x_unite langue="en">Architecture</x_unite>
+                <x_uniteCourt langue="en">AR</x_uniteCourt>
+               </unite>
+              </section>
+             </prof>
+            </profs>
+           </detail>
+          </details>
+          <x_remarque>Inscription faite par la section</x_remarque>
+         </enseignement>
+         <examen>
+          <matiere>
+           <i_matiere>4524310807</i_matiere>
+           <x_matiere langue="fr">Théorie et critique du projet BA5 (Fröhlich M. &amp; A.)</x_matiere>
+           <x_matiere langue="en">Studio BA6 (Fröhlich M. &amp; A.)</x_matiere>
+          </matiere>
+          <n_credits>12</n_credits>
+          <details>
+           <detail>
+            <code langue="fr">Pendant le semestre</code>
+            <code langue="en">During the semester</code>
+            <coeff>
+             <x_coeff langue="fr">Crédit</x_coeff>
+             <x_coeff langue="en">Credits</x_coeff>
+             <n_valeur>12</n_valeur>
+            </coeff>
+            <sessions>
+             <session>
+             </session>
+             <session>
+             </session>
+             <session>
+             </session>
+             <session>
+             </session>
+             <session>
+              <libelles>
+               <code langue="fr">Session hiver</code>
+               <code langue="en">Session winter</code>
+              </libelles>
+              <codes>
+               <code langue="fr">HIV</code>
+               <code langue="en">HIV</code>
+              </codes>
+             </session>
+             <session>
+             </session>
+            </sessions>
+           </detail>
+          </details>
+         </examen>
+        </itp>
+       </itps>
+      </gps>
+      <gps style="bama_cyclebachelor-ar" ordre="2">
+       <x_gps langue="fr">Architecture, 2025-2026, Bachelor semestre 5b</x_gps>
+       <x_gps langue="en">Architecture, 2025-2026, Bachelor semester 5b</x_gps>
+       <uniteOrg>
+        <unite>
+         <x_unite langue="fr">Ecole polytechnique fédérale de Lausanne</x_unite>
+         <x_uniteCourt langue="fr">EPFL</x_uniteCourt>
+         <x_unite langue="en">Ecole polytechnique fédérale de Lausanne</x_unite>
+         <x_uniteCourt langue="en">EPFL</x_uniteCourt>
+        </unite>
+       </uniteOrg>
+       <periodeAcad>
+        <periode>
+         <x_periode langue="fr">2025-2026</x_periode>
+         <x_periodeCADI langue="fr"></x_periodeCADI>
+        </periode>
+       </periodeAcad>
+       <periodePedago>
+        <periode>
+         <x_periode langue="fr">Bachelor semestre 5b</x_periode>
+         <x_periodeCADI langue="fr">BA5</x_periodeCADI>
+         <semestre>HIVER</semestre>
+         <x_periode langue="en">Bachelor semester 5b</x_periode>
+         <x_periodeCADI langue="en">BA5</x_periodeCADI>
+        </periode>
+       </periodePedago>
+       <uniteAcad id="942293" b_section="1">
+        <unite>
+         <x_unite langue="fr">Architecture</x_unite>
+         <x_uniteCourt langue="fr">AR</x_uniteCourt>
+         <x_unite langue="en">Architecture</x_unite>
+         <x_uniteCourt langue="en">AR</x_uniteCourt>
+        </unite>
+       </uniteAcad>
+       <section>
+        <unite>
+         <x_unite langue="fr">Architecture</x_unite>
+         <x_uniteCourt langue="fr">AR</x_uniteCourt>
+         <x_unite langue="en">Architecture</x_unite>
+         <x_uniteCourt langue="en">AR</x_uniteCourt>
+        </unite>
+       </section>
+       <itps>
+        <itp>
+         <enseignement>
+          <specialisations>
+          </specialisations>
+          <typecourss>
+           <code langue="fr">obligatoire</code>
+           <code langue="en">mandatory</code>
+          </typecourss>
+          <details>
+           <detail>
+            <quantite>2</quantite>
+            <code langue="fr">Cours</code>
+            <code langue="en">Courses</code>
+            <frequences>
+             <code langue="fr">Heure(s) hebdo x 14 semaines</code>
+             <code langue="en">Hour(s) per week x 14 weeks</code>
+            </frequences>
+            <frequencesCodes>
+             <code langue="fr">H hebdo</code>
+             <code langue="en">H hebdo</code>
+            </frequencesCodes>
+            <profs>
+             <prof>
+              <nom>Fröhlich</nom>
+              <prenom>Martin</prenom>
+              <sciper>225190</sciper>
+              <section>
+               <unite>
+                <x_unite langue="fr">Architecture</x_unite>
+                <x_uniteCourt langue="fr">AR</x_uniteCourt>
+                <x_unite langue="en">Architecture</x_unite>
+                <x_uniteCourt langue="en">AR</x_uniteCourt>
+               </unite>
+              </section>
+             </prof>
+             <prof>
+              <nom>Pratas Borges</nom>
+              <prenom>Tiago André</prenom>
+              <sciper>169804</sciper>
+              <section>
+               <unite>
+                <x_unite langue="fr">Architecture</x_unite>
+                <x_uniteCourt langue="fr">AR</x_uniteCourt>
+                <x_unite langue="en">Architecture</x_unite>
+                <x_uniteCourt langue="en">AR</x_uniteCourt>
+               </unite>
+              </section>
+             </prof>
+            </profs>
+           </detail>
+           <detail>
+            <quantite>4</quantite>
+            <code langue="fr">Projet</code>
+            <code langue="en">Project</code>
+            <frequences>
+             <code langue="fr">Heure(s) hebdo x 14 semaines</code>
+             <code langue="en">Hour(s) per week x 14 weeks</code>
+            </frequences>
+            <frequencesCodes>
+             <code langue="fr">H hebdo</code>
+             <code langue="en">H hebdo</code>
+            </frequencesCodes>
+            <profs>
+             <prof>
+              <nom>Fröhlich</nom>
+              <prenom>Martin</prenom>
+              <sciper>225190</sciper>
+              <section>
+               <unite>
+                <x_unite langue="fr">Architecture</x_unite>
+                <x_uniteCourt langue="fr">AR</x_uniteCourt>
+                <x_unite langue="en">Architecture</x_unite>
+                <x_uniteCourt langue="en">AR</x_uniteCourt>
+               </unite>
+              </section>
+             </prof>
+             <prof>
+              <nom>Pratas Borges</nom>
+              <prenom>Tiago André</prenom>
+              <sciper>169804</sciper>
+              <section>
+               <unite>
+                <x_unite langue="fr">Architecture</x_unite>
+                <x_uniteCourt langue="fr">AR</x_uniteCourt>
+                <x_unite langue="en">Architecture</x_unite>
+                <x_uniteCourt langue="en">AR</x_uniteCourt>
+               </unite>
+              </section>
+             </prof>
+            </profs>
+           </detail>
+          </details>
+          <x_remarque>Inscription faite par la section</x_remarque>
+         </enseignement>
+         <examen>
+          <matiere>
+           <i_matiere>4524310807</i_matiere>
+           <x_matiere langue="fr">Théorie et critique du projet BA5 (Fröhlich M. &amp; A.)</x_matiere>
+           <x_matiere langue="en">Studio BA6 (Fröhlich M. &amp; A.)</x_matiere>
+          </matiere>
+          <n_credits>12</n_credits>
+          <details>
+           <detail>
+            <code langue="fr">Pendant le semestre</code>
+            <code langue="en">During the semester</code>
+            <coeff>
+             <x_coeff langue="fr">Crédit</x_coeff>
+             <x_coeff langue="en">Credits</x_coeff>
+             <n_valeur>12</n_valeur>
+            </coeff>
+            <sessions>
+             <session>
+             </session>
+             <session>
+             </session>
+             <session>
+             </session>
+             <session>
+             </session>
+             <session>
+              <libelles>
+               <code langue="fr">Session hiver</code>
+               <code langue="en">Session winter</code>
+              </libelles>
+              <codes>
+               <code langue="fr">HIV</code>
+               <code langue="en">HIV</code>
+              </codes>
+             </session>
+             <session>
+             </session>
+            </sessions>
+           </detail>
+          </details>
+         </examen>
+        </itp>
+       </itps>
+      </gps>
+      <gps style="bama_cyclebachelor-ar_ech" ordre="3">
+       <x_gps langue="fr">Mobilité AR, 2025-2026, Semestre automne</x_gps>
+       <x_gps langue="en">AR Exchange, 2025-2026, Autumn semester</x_gps>
+       <uniteOrg>
+        <unite>
+         <x_unite langue="fr">Ecole polytechnique fédérale de Lausanne</x_unite>
+         <x_uniteCourt langue="fr">EPFL</x_uniteCourt>
+         <x_unite langue="en">Ecole polytechnique fédérale de Lausanne</x_unite>
+         <x_uniteCourt langue="en">EPFL</x_uniteCourt>
+        </unite>
+       </uniteOrg>
+       <periodeAcad>
+        <periode>
+         <x_periode langue="fr">2025-2026</x_periode>
+         <x_periodeCADI langue="fr"></x_periodeCADI>
+        </periode>
+       </periodeAcad>
+       <periodePedago>
+        <periode>
+         <x_periode langue="fr">Semestre automne</x_periode>
+         <x_periodeCADI langue="fr">H</x_periodeCADI>
+         <semestre>HIVER</semestre>
+         <x_periode langue="en">Autumn semester</x_periode>
+         <x_periodeCADI langue="en">H</x_periodeCADI>
+        </periode>
+       </periodePedago>
+       <uniteAcad id="24063032" b_section="0">
+        <unite>
+         <x_unite langue="fr">Mobilité AR</x_unite>
+         <x_uniteCourt langue="fr">AR_ECH</x_uniteCourt>
+         <x_unite langue="en">AR Exchange</x_unite>
+         <x_uniteCourt langue="en">AR_ECH</x_uniteCourt>
+        </unite>
+       </uniteAcad>
+       <section>
+        <unite>
+         <x_unite langue="fr">Architecture</x_unite>
+         <x_uniteCourt langue="fr">AR</x_uniteCourt>
+         <x_unite langue="en">Architecture</x_unite>
+         <x_uniteCourt langue="en">AR</x_uniteCourt>
         </unite>
        </section>
        <itps>
@@ -219,64 +773,105 @@ Content
           </typecourss>
           <details>
            <detail>
-            <quantite>28</quantite>
+            <quantite>2</quantite>
             <code langue="fr">Cours</code>
             <code langue="en">Courses</code>
             <frequences>
-             <code langue="fr">Heure(s)</code>
-             <code langue="en">Hour(s)</code>
+             <code langue="fr">Heure(s) hebdo x 14 semaines</code>
+             <code langue="en">Hour(s) per week x 14 weeks</code>
             </frequences>
             <frequencesCodes>
-             <code langue="fr">H</code>
-             <code langue="en">H</code>
+             <code langue="fr">H hebdo</code>
+             <code langue="en">H hebdo</code>
             </frequencesCodes>
             <profs>
              <prof>
-              <nom>Gruber</nom>
-              <prenom>Marc</prenom>
-              <sciper>171551</sciper>
+              <nom>Fröhlich</nom>
+              <prenom>Martin</prenom>
+              <sciper>225190</sciper>
               <section>
                <unite>
-                <x_unite langue="fr">Management de la technologie</x_unite>
-                <x_uniteCourt langue="fr">MTE</x_uniteCourt>
-                <x_unite langue="en">Management of Technology</x_unite>
-                <x_uniteCourt langue="en">MTE</x_uniteCourt>
+                <x_unite langue="fr">Architecture</x_unite>
+                <x_uniteCourt langue="fr">AR</x_uniteCourt>
+                <x_unite langue="en">Architecture</x_unite>
+                <x_uniteCourt langue="en">AR</x_uniteCourt>
                </unite>
               </section>
              </prof>
              <prof>
-              <nom>Foray</nom>
-              <prenom>Dominique</prenom>
-              <sciper>141288</sciper>
+              <nom>Pratas Borges</nom>
+              <prenom>Tiago André</prenom>
+              <sciper>169804</sciper>
               <section>
                <unite>
-                <x_unite langue="fr">Management de la technologie</x_unite>
-                <x_uniteCourt langue="fr">MTE</x_uniteCourt>
-                <x_unite langue="en">Management of Technology</x_unite>
-                <x_uniteCourt langue="en">MTE</x_uniteCourt>
+                <x_unite langue="fr">Architecture</x_unite>
+                <x_uniteCourt langue="fr">AR</x_uniteCourt>
+                <x_unite langue="en">Architecture</x_unite>
+                <x_uniteCourt langue="en">AR</x_uniteCourt>
+               </unite>
+              </section>
+             </prof>
+            </profs>
+           </detail>
+           <detail>
+            <quantite>4</quantite>
+            <code langue="fr">Projet</code>
+            <code langue="en">Project</code>
+            <frequences>
+             <code langue="fr">Heure(s) hebdo x 14 semaines</code>
+             <code langue="en">Hour(s) per week x 14 weeks</code>
+            </frequences>
+            <frequencesCodes>
+             <code langue="fr">H hebdo</code>
+             <code langue="en">H hebdo</code>
+            </frequencesCodes>
+            <profs>
+             <prof>
+              <nom>Fröhlich</nom>
+              <prenom>Martin</prenom>
+              <sciper>225190</sciper>
+              <section>
+               <unite>
+                <x_unite langue="fr">Architecture</x_unite>
+                <x_uniteCourt langue="fr">AR</x_uniteCourt>
+                <x_unite langue="en">Architecture</x_unite>
+                <x_uniteCourt langue="en">AR</x_uniteCourt>
+               </unite>
+              </section>
+             </prof>
+             <prof>
+              <nom>Pratas Borges</nom>
+              <prenom>Tiago André</prenom>
+              <sciper>169804</sciper>
+              <section>
+               <unite>
+                <x_unite langue="fr">Architecture</x_unite>
+                <x_uniteCourt langue="fr">AR</x_uniteCourt>
+                <x_unite langue="en">Architecture</x_unite>
+                <x_uniteCourt langue="en">AR</x_uniteCourt>
                </unite>
               </section>
              </prof>
             </profs>
            </detail>
           </details>
-          <x_remarque>March 5th from 10h00 until 18h00 and March 6th from 8h30 until 11h45</x_remarque>
+          <x_remarque>Inscription faite par la section</x_remarque>
          </enseignement>
          <examen>
           <matiere>
-           <i_matiere>399868361</i_matiere>
-           <x_matiere langue="fr">Publishing in Management, Technology and Innovation</x_matiere>
-           <x_matiere langue="en">Publishing in Management, Technology and Innovation</x_matiere>
+           <i_matiere>4524310807</i_matiere>
+           <x_matiere langue="fr">Théorie et critique du projet BA5 (Fröhlich M. &amp; A.)</x_matiere>
+           <x_matiere langue="en">Studio BA6 (Fröhlich M. &amp; A.)</x_matiere>
           </matiere>
-          <n_credits>1</n_credits>
+          <n_credits>12</n_credits>
           <details>
            <detail>
-            <code langue="fr">Multiple</code>
-            <code langue="en">Multiple</code>
+            <code langue="fr">Pendant le semestre</code>
+            <code langue="en">During the semester</code>
             <coeff>
              <x_coeff langue="fr">Crédit</x_coeff>
              <x_coeff langue="en">Credits</x_coeff>
-             <n_valeur>1</n_valeur>
+             <n_valeur>12</n_valeur>
             </coeff>
             <sessions>
              <session>
@@ -286,16 +881,197 @@ Content
              <session>
              </session>
              <session>
+             </session>
+             <session>
               <libelles>
-               <code langue="fr">Session libre</code>
-               <code langue="en">Session free</code>
+               <code langue="fr">Session hiver</code>
+               <code langue="en">Session winter</code>
               </libelles>
               <codes>
-               <code langue="fr">LIB</code>
-               <code langue="en">LIB</code>
+               <code langue="fr">HIV</code>
+               <code langue="en">HIV</code>
               </codes>
              </session>
              <session>
+             </session>
+            </sessions>
+           </detail>
+          </details>
+         </examen>
+        </itp>
+       </itps>
+      </gps>
+      <gps style="bama_cyclebachelor-ar_hes" ordre="4">
+       <x_gps langue="fr">Passerelle HES - AR, 2025-2026, Semestre automne</x_gps>
+       <x_gps langue="en">Passerelle HES - AR, 2025-2026, Autumn semester</x_gps>
+       <uniteOrg>
+        <unite>
+         <x_unite langue="fr">Ecole polytechnique fédérale de Lausanne</x_unite>
+         <x_uniteCourt langue="fr">EPFL</x_uniteCourt>
+         <x_unite langue="en">Ecole polytechnique fédérale de Lausanne</x_unite>
+         <x_uniteCourt langue="en">EPFL</x_uniteCourt>
+        </unite>
+       </uniteOrg>
+       <periodeAcad>
+        <periode>
+         <x_periode langue="fr">2025-2026</x_periode>
+         <x_periodeCADI langue="fr"></x_periodeCADI>
+        </periode>
+       </periodeAcad>
+       <periodePedago>
+        <periode>
+         <x_periode langue="fr">Semestre automne</x_periode>
+         <x_periodeCADI langue="fr">H</x_periodeCADI>
+         <semestre>HIVER</semestre>
+         <x_periode langue="en">Autumn semester</x_periode>
+         <x_periodeCADI langue="en">H</x_periodeCADI>
+        </periode>
+       </periodePedago>
+       <uniteAcad id="947212" b_section="0">
+        <unite>
+         <x_unite langue="fr">Passerelle HES - AR</x_unite>
+         <x_uniteCourt langue="fr">AR_HES</x_uniteCourt>
+         <x_unite langue="en">Passerelle HES - AR</x_unite>
+         <x_uniteCourt langue="en">AR_HES</x_uniteCourt>
+        </unite>
+       </uniteAcad>
+       <section>
+        <unite>
+         <x_unite langue="fr">Architecture</x_unite>
+         <x_uniteCourt langue="fr">AR</x_uniteCourt>
+         <x_unite langue="en">Architecture</x_unite>
+         <x_uniteCourt langue="en">AR</x_uniteCourt>
+        </unite>
+       </section>
+       <itps>
+        <itp>
+         <enseignement>
+          <specialisations>
+          </specialisations>
+          <typecourss>
+           <code langue="fr">obligatoire</code>
+           <code langue="en">mandatory</code>
+          </typecourss>
+          <details>
+           <detail>
+            <quantite>2</quantite>
+            <code langue="fr">Cours</code>
+            <code langue="en">Courses</code>
+            <frequences>
+             <code langue="fr">Heure(s) hebdo x 14 semaines</code>
+             <code langue="en">Hour(s) per week x 14 weeks</code>
+            </frequences>
+            <frequencesCodes>
+             <code langue="fr">H hebdo</code>
+             <code langue="en">H hebdo</code>
+            </frequencesCodes>
+            <profs>
+             <prof>
+              <nom>Fröhlich</nom>
+              <prenom>Martin</prenom>
+              <sciper>225190</sciper>
+              <section>
+               <unite>
+                <x_unite langue="fr">Architecture</x_unite>
+                <x_uniteCourt langue="fr">AR</x_uniteCourt>
+                <x_unite langue="en">Architecture</x_unite>
+                <x_uniteCourt langue="en">AR</x_uniteCourt>
+               </unite>
+              </section>
+             </prof>
+             <prof>
+              <nom>Pratas Borges</nom>
+              <prenom>Tiago André</prenom>
+              <sciper>169804</sciper>
+              <section>
+               <unite>
+                <x_unite langue="fr">Architecture</x_unite>
+                <x_uniteCourt langue="fr">AR</x_uniteCourt>
+                <x_unite langue="en">Architecture</x_unite>
+                <x_uniteCourt langue="en">AR</x_uniteCourt>
+               </unite>
+              </section>
+             </prof>
+            </profs>
+           </detail>
+           <detail>
+            <quantite>4</quantite>
+            <code langue="fr">Projet</code>
+            <code langue="en">Project</code>
+            <frequences>
+             <code langue="fr">Heure(s) hebdo x 14 semaines</code>
+             <code langue="en">Hour(s) per week x 14 weeks</code>
+            </frequences>
+            <frequencesCodes>
+             <code langue="fr">H hebdo</code>
+             <code langue="en">H hebdo</code>
+            </frequencesCodes>
+            <profs>
+             <prof>
+              <nom>Fröhlich</nom>
+              <prenom>Martin</prenom>
+              <sciper>225190</sciper>
+              <section>
+               <unite>
+                <x_unite langue="fr">Architecture</x_unite>
+                <x_uniteCourt langue="fr">AR</x_uniteCourt>
+                <x_unite langue="en">Architecture</x_unite>
+                <x_uniteCourt langue="en">AR</x_uniteCourt>
+               </unite>
+              </section>
+             </prof>
+             <prof>
+              <nom>Pratas Borges</nom>
+              <prenom>Tiago André</prenom>
+              <sciper>169804</sciper>
+              <section>
+               <unite>
+                <x_unite langue="fr">Architecture</x_unite>
+                <x_uniteCourt langue="fr">AR</x_uniteCourt>
+                <x_unite langue="en">Architecture</x_unite>
+                <x_uniteCourt langue="en">AR</x_uniteCourt>
+               </unite>
+              </section>
+             </prof>
+            </profs>
+           </detail>
+          </details>
+          <x_remarque>Inscription faite par la section</x_remarque>
+         </enseignement>
+         <examen>
+          <matiere>
+           <i_matiere>4524310807</i_matiere>
+           <x_matiere langue="fr">Théorie et critique du projet BA5 (Fröhlich M. &amp; A.)</x_matiere>
+           <x_matiere langue="en">Studio BA6 (Fröhlich M. &amp; A.)</x_matiere>
+          </matiere>
+          <n_credits>12</n_credits>
+          <details>
+           <detail>
+            <code langue="fr">Pendant le semestre</code>
+            <code langue="en">During the semester</code>
+            <coeff>
+             <x_coeff langue="fr">Crédit</x_coeff>
+             <x_coeff langue="en">Credits</x_coeff>
+             <n_valeur>12</n_valeur>
+            </coeff>
+            <sessions>
+             <session>
+             </session>
+             <session>
+             </session>
+             <session>
+             </session>
+             <session>
+             </session>
+             <session>
+              <libelles>
+               <code langue="fr">Session hiver</code>
+               <code langue="en">Session winter</code>
+              </libelles>
+              <codes>
+               <code langue="fr">HIV</code>
+               <code langue="en">HIV</code>
+              </codes>
              </session>
              <session>
              </session>
@@ -307,15 +1083,58 @@ Content
        </itps>
       </gps>
      </gpss>
-     <seances_edoc>
-      <i_reportmodel>2096516283</i_reportmodel>
-      <i_reportxsl>2096516327</i_reportxsl>
-      <i_gps>4523488112</i_gps>
-      <i_matiere>399868361</i_matiere>
-      <d_debut>01.09.2025</d_debut>
-      <d_fin>31.08.2026</d_fin>
-      <x_url>https://isa.epfl.ch/imoniteur_ISAP/</x_url>
-     </seances_edoc>
+     <seances>
+      <seance ordre="99">
+       <d_seance>08-SEP-25</d_seance>
+       <n_duree>225</n_duree>
+       <n_day>1</n_day>
+       <n_heuredebut>8</n_heuredebut>
+       <n_dureeheure>4</n_dureeheure>
+       <espaces>
+       </espaces>
+       <typecours>LIP_PROJET</typecours>
+      </seance>
+      <seance ordre="99">
+       <d_seance>08-SEP-25</d_seance>
+       <n_duree>285</n_duree>
+       <n_day>1</n_day>
+       <n_heuredebut>13</n_heuredebut>
+       <n_dureeheure>5</n_dureeheure>
+       <espaces>
+       </espaces>
+       <typecours>LIP_PROJET</typecours>
+      </seance>
+      <seance ordre="1">
+       <d_seance>09-SEP-25</d_seance>
+       <n_duree>105</n_duree>
+       <n_day>2</n_day>
+       <n_heuredebut>8</n_heuredebut>
+       <n_dureeheure>2</n_dureeheure>
+       <espaces>
+       </espaces>
+       <typecours>LIP_COURS</typecours>
+      </seance>
+      <seance ordre="99">
+       <d_seance>09-SEP-25</d_seance>
+       <n_duree>105</n_duree>
+       <n_day>2</n_day>
+       <n_heuredebut>10</n_heuredebut>
+       <n_dureeheure>2</n_dureeheure>
+       <espaces>
+       </espaces>
+       <typecours>LIP_PROJET</typecours>
+      </seance>
+      <seance ordre="99">
+       <d_seance>09-SEP-25</d_seance>
+       <n_duree>165</n_duree>
+       <n_day>2</n_day>
+       <n_heuredebut>15</n_heuredebut>
+       <n_dureeheure>3</n_dureeheure>
+       <espaces>
+       </espaces>
+       <typecours>LIP_PROJET</typecours>
+      </seance>
+     </seances>
     </groupe>
    </groupes>
    <codes>
@@ -2771,23 +3590,23 @@ Content
     </code>
    </codes>
    <matiere>
-    <i_matiere>399868361</i_matiere>
-    <x_matiere langue="fr">Publishing in Management, Technology and Innovation</x_matiere>
-    <x_matiere langue="en">Publishing in Management, Technology and Innovation</x_matiere>
+    <i_matiere>4524310807</i_matiere>
+    <x_matiere langue="fr">Théorie et critique du projet BA5 (Fröhlich M. &amp; A.)</x_matiere>
+    <x_matiere langue="en">Studio BA6 (Fröhlich M. &amp; A.)</x_matiere>
    </matiere>
-   <langueEns code="AN">English</langueEns>
+   <langueEns code="FR_AN">français / anglais</langueEns>
    <profs>
     <prof>
-     <nom>Foray Dominique</nom>
-     <sciper>141288</sciper>
+     <nom>Pratas Borges Tiago André</nom>
+     <sciper>169804</sciper>
     </prof>
     <prof>
-     <nom>Gruber Marc</nom>
-     <sciper>171551</sciper>
+     <nom>Fröhlich Martin</nom>
+     <sciper>225190</sciper>
     </prof>
    </profs>
   </fiche>
-  <i_uniteacad_for_pdf>32211080</i_uniteacad_for_pdf>
+  <i_uniteacad_for_pdf>942293</i_uniteacad_for_pdf>
  </DATA>
 </PAGE>
-<!-- OpenXml:0.00s  agent ctrl:0.01s xml:0.06s  -->
+<!-- OpenXml:0.00s  agent ctrl:0.00s xml:0.13s  -->

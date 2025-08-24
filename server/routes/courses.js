@@ -2,14 +2,18 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 
-// GET /api/courses?q=keyword&lang=English,French&semester=winter&page=1&pageSize=20
+// GET /api/courses?q=keyword&lang=English,French&section=A&keywords=AI,ML&available_programs=CS,DS&page=1&pageSize=20
 router.get('/', async (req, res) => {
   try {
-    const { q, page = 1, pageSize = 20 } = req.query;
+    const { q, page = 1, pageSize = 50 } = req.query;
 
-    // Treat all query params except q/page/pageSize as tag-type filters
+    // Only these are filter tags (others are descriptive in courses table)
+    const ALLOWED_FILTER_TYPES = new Set(['lang', 'section', 'keywords', 'available_programs']);
+
+    // Treat only ALLOWED_FILTER_TYPES as tag-type filters
     const rawFilters = Object.entries(req.query)
-      .filter(([k]) => !['q', 'page', 'pageSize'].includes(k));
+      .filter(([k]) => !['q', 'page', 'pageSize'].includes(k))
+      .filter(([k]) => ALLOWED_FILTER_TYPES.has(k));
 
     // Parse each tag-type's values into an array
     const filters = rawFilters
@@ -19,10 +23,10 @@ router.get('/', async (req, res) => {
     const params = [];
     const whereParts = [];
 
-    // Keyword search (LIKE). For speed, add FULLTEXT on courses(title, description)
+    // Keyword search on new columns
     if (q && String(q).trim()) {
-      whereParts.push(`(c.title LIKE CONCAT('%', ?, '%') OR c.description LIKE CONCAT('%', ?, '%'))`);
-      params.push(q.trim(), q.trim());
+      whereParts.push(`(c.course_name LIKE CONCAT('%', ?, '%'))`);
+      params.push(q.trim());
     }
 
     // Build OR blocks (OR within the same type; AND across types via HAVING)
@@ -40,29 +44,30 @@ router.get('/', async (req, res) => {
     const lim = Number.isFinite(limit) ? Number(limit) : 20;
     const off = Number.isFinite(offset) ? Number(offset) : 0;
 
-    const havingParts = filters.map(() => 'SUM(1) > 0'); // placeholder note (hits are computed via aliases)
-
     // For HAVING: compute a per-type hit counter
     const selectHits = filters
-      .map(([typeName], idx) => `SUM(tt.name = ? ) AS hit_${idx}`)
+      .map(([,], idx) => `SUM(tt.name = ? ) AS hit_${idx}`)
       .join(', ');
 
     // Add each typeName again for selectHits placeholders
     const hitParams = filters.map(([typeName]) => typeName);
 
-    const sql = `
-      SELECT c.id, c.title, c.description
-      ${filters.length ? `, ${selectHits}` : ''}
-      FROM courses c
-      JOIN course_tags ct ON ct.course_id = c.id
-      JOIN tags t        ON t.id = ct.tag_id
-      JOIN tag_types tt  ON tt.id = t.tag_type_id
-      ${whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : ''}
-      GROUP BY c.id
-      ${filters.length ? `HAVING ${filters.map((_, i) => `hit_${i} > 0`).join(' AND ')}` : ''}
-      ORDER BY c.id DESC
-      LIMIT ${lim} OFFSET ${off}
-    `;
+    // Base SELECT now returns descriptive fields from the courses table
+    const baseSelect = `SELECT c.id, c.course_name, c.course_code, c.url, c.prof_name, c.credits, c.semester, c.exam_form, c.workload, c.type`;
+
+    // Build FROM/JOINS conditionally to avoid duplicate rows when no tag filters
+    const fromAndJoins = filters.length
+      ? `FROM courses c\nJOIN course_tags ct ON ct.course_id = c.id\nJOIN tags t        ON t.id = ct.tag_id\nJOIN tag_types tt  ON tt.id = t.tag_type_id`
+      : `FROM courses c`;
+
+    const whereSQL = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
+
+    const groupBySQL = filters.length ? `GROUP BY c.id` : '';
+    const havingSQL = filters.length ? `HAVING ${filters.map((_, i) => `hit_${i} > 0`).join(' AND ')}` : '';
+
+    const selectSQL = filters.length ? `${baseSelect}, ${selectHits}` : baseSelect;
+
+    const sql = `\n      ${selectSQL}\n      ${fromAndJoins}\n      ${whereSQL}\n      ${groupBySQL}\n      ${havingSQL}\n      ORDER BY c.id DESC\n      LIMIT ${lim} OFFSET ${off}\n    `;
 
     // Params order must follow the appearance of "?" in SQL:
     // 1) selectHits (hitParams), 2) WHERE parts (params)

@@ -50,7 +50,7 @@ project_time = ""
 course_type = ""
 keywords = []
 available_programs = []
-course_url = "https://isa.epfl.ch/imoniteur_ISAP/!itffichecours.htm?ww_i_matiere=399868361&ww_x_anneeacad=2840683608&ww_i_section=32211080&ww_i_niveau=&ww_c_langue=en"
+course_url = "https://isa.epfl.ch/imoniteur_ISAP/!itffichecours.htm?ww_i_matiere=4524310807&ww_x_anneeacad=2840683608&ww_i_section=942293&ww_i_niveau=6683117&ww_c_langue=en"
 if course_url:
     try:
         page_resp = requests.get(course_url, headers=headers, timeout=15)

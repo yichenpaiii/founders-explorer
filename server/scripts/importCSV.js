@@ -79,33 +79,53 @@ async function main() {
     for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
 
-        // Map new header names:
-        // title  <- course_name
-        // description <- a compact summary built from several fields
-        // tag types <- choose the columns below to act as tag categories
-        const TITLE_COL = 'course_name';
-        const DESCRIPTION_COLS = ['keywords', 'exam_form', 'semester', 'prof_name', 'course_url'];
+        // Map header names from the new CSV format
+        // courses table columns (descriptive fields)
+        const COURSE_CODE_COL = 'course_code';
+        const COURSE_NAME_COL = 'course_name';
+        const URL_COL = 'course_url';
+        const PROF_COL = 'prof_name';
+        const CREDITS_COL = 'credits';
+        const SEMESTER_COL = 'semester';
+        const EXAM_FORM_COL = 'exam_form';
+        const WORKLOAD_COL = 'workload';
+        const TYPE_COL = 'type';
 
-        // Columns treated as tag "types" (category name = column header)
-        // You can tweak this list anytime. We intentionally skip identifiers/URLs.
+        // Filter tag columns: keep only these in tags/tag_types
+        // (keywords and available_programs may be list-like values)
         const TAG_TYPE_COLUMNS = [
-        'lang',
-        'program_term',
-        'section',
-        'semester',
-        'credits',
-        'type',
-        'keywords',
-        'available_programs'
+          'lang',
+          'section',
+          'keywords',
+          'available_programs'
         ];
 
-        const title = (row[TITLE_COL] || '').trim();
-        const description = DESCRIPTION_COLS
-        .map(k => (row[k] || '').toString().trim())
-        .filter(Boolean)
-        .join('\n') || null;
+        const courseCode = (row[COURSE_CODE_COL] || '').toString().trim();
+        const courseName = (row[COURSE_NAME_COL] || '').toString().trim();
+        const url = ((row[URL_COL] || '').toString().trim()) || null;
+        const profName = ((row[PROF_COL] || '').toString().trim()) || null;
 
-        if (!title) {
+        // credits is an integer; default to 0 if not parseable
+        let creditsRaw = (row[CREDITS_COL] ?? '').toString().trim();
+        let credits = parseInt(creditsRaw, 10);
+        if (!Number.isFinite(credits)) credits = 0; // ensure NOT NULL
+
+        const semester = ((row[SEMESTER_COL] || '').toString().trim()) || null;
+        const examForm = ((row[EXAM_FORM_COL] || '').toString().trim()) || null;
+        const workload = ((row[WORKLOAD_COL] || '').toString().trim()) || null;
+
+        let typeRaw = (row[TYPE_COL] || '').toString().trim().toLowerCase();
+        let courseType = null;
+        if (typeRaw === 'mandatory' || typeRaw === 'optional') {
+          courseType = typeRaw;
+        } else if (typeRaw) {
+          // Try to coerce common variants
+          if (/(compulsory|required|core)/i.test(typeRaw)) courseType = 'mandatory';
+          else if (/(elective|optional)/i.test(typeRaw)) courseType = 'optional';
+        }
+
+
+        if (!courseName) {
             console.warn(`Row ${i + 1} has no course_name; skipped`);
             continue;
         }
@@ -115,11 +135,13 @@ async function main() {
         try {
             await conn.beginTransaction();
 
-            // Insert the course and capture its ID
+            // Insert the course and capture its ID (matches new schema)
             const [cr] = await conn.execute(
-                `INSERT INTO courses (title, description) VALUES (?, ?)`,
-                [title, description]
+                `INSERT INTO courses (course_name, course_code, url, prof_name, credits, semester, exam_form, workload, type)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [courseName, courseCode, url, profName, credits, semester, examForm, workload, courseType]
             );
+
             const courseId = cr.insertId;
 
             // For each selected column, treat its values as tags under that "type"
