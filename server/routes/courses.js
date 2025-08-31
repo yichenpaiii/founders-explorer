@@ -156,6 +156,15 @@ router.get('/', async (req, res) => {
     const dir = String(sortOrder).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
     let orderBy = `\nORDER BY c.course_name ASC`;
 
+    // Workload numeric normalization (e.g., "10hrs/week" vs "30hrs/semester")
+    // Extract numeric and convert semester total to weekly equivalent by dividing ~14 weeks
+    const wlNumeric = `CAST(REPLACE(REPLACE(TRIM(c.workload), 'hrs/week', ''), 'hrs/semester', '') AS DECIMAL(10,2))`;
+    const wlWeeklyEq = `CASE WHEN c.workload LIKE '%hrs/week%'
+                              THEN ${wlNumeric}
+                              WHEN c.workload LIKE '%hrs/semester%'
+                              THEN ${wlNumeric} / 14
+                              ELSE NULL END`;
+
     // relevance: simple score using LIKE hits; only when q present
     const relevanceExpr = hasQ
       ? `(
@@ -173,6 +182,8 @@ router.get('/', async (req, res) => {
       orderBy = `\nORDER BY ${relevanceExpr} ${dir}, c.course_name ASC`;
     } else if (String(sortField) === 'credits') {
       orderBy = `\nORDER BY c.credits ${dir}, c.course_name ASC`;
+    } else if (String(sortField) === 'workload') {
+      orderBy = `\nORDER BY (${wlWeeklyEq} IS NULL) ASC, ${wlWeeklyEq} ${dir}, c.course_name ASC`;
     } else if (String(sortField) === 'course_name') {
       orderBy = `\nORDER BY c.course_name ${dir}`;
     }

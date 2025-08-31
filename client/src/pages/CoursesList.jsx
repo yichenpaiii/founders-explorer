@@ -11,6 +11,8 @@ function CoursesList() {
   const [pageSize] = useState(20);
   const [showFilters, setShowFilters] = useState(true);
   const [filters, setFilters] = useState({ query: "", type: "", semester: "", creditsMin: "", creditsMax: "" });
+  const [sortField, setSortField] = useState("");
+  const [sortOrder, setSortOrder] = useState("asc");
 
   useEffect(() => {
     async function fetchData() {
@@ -29,6 +31,8 @@ function CoursesList() {
           creditsMin: filters.creditsMin !== "" ? Number(filters.creditsMin) : undefined,
           creditsMax: filters.creditsMax !== "" ? Number(filters.creditsMax) : undefined,
           availablePrograms: ap || undefined,
+          sortField: sortField || undefined,
+          sortOrder: sortField ? sortOrder : undefined,
         };
         const data = await getCourses(params);
         console.log("API response:", data);
@@ -40,11 +44,11 @@ function CoursesList() {
       }
     }
     fetchData();
-  }, [page, pageSize, filters, location.search]);
+  }, [page, pageSize, filters, location.search, sortField, sortOrder]);
 
   useEffect(() => {
     setPage(1);
-  }, [filters.query, filters.type, filters.semester, filters.creditsMin, filters.creditsMax, location.search]);
+  }, [filters.query, filters.type, filters.semester, filters.creditsMin, filters.creditsMax, location.search, sortField, sortOrder]);
 
   return (
     <div style={{ display: "flex", gap: "1rem" }}>
@@ -163,6 +167,31 @@ function CoursesList() {
           {!showFilters && (
             <button onClick={() => setShowFilters(true)}>Show filters</button>
           )}
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", margin: "8px 0" }}>
+          <span style={{ fontSize: 12, color: "#666" }}>Sort by</span>
+          <div style={{ display: "flex", gap: 4 }}>
+            <button
+              onClick={() => { setSortField("credits"); setSortOrder(sortField === "credits" && sortOrder === "asc" ? "desc" : "asc"); }}
+              style={{ padding: "4px 8px", border: "1px solid #ccc", background: sortField === "credits" ? "#eee" : "#fff" }}
+              title="Toggle credits ascending/descending"
+            >
+              Credits {sortField === "credits" ? (sortOrder === "asc" ? "↑" : "↓") : ""}
+            </button>
+            <button
+              onClick={() => { setSortField("workload"); setSortOrder(sortField === "workload" && sortOrder === "asc" ? "desc" : "asc"); }}
+              style={{ padding: "4px 8px", border: "1px solid #ccc", background: sortField === "workload" ? "#eee" : "#fff" }}
+              title="Toggle workload ascending/descending"
+            >
+              Workload {sortField === "workload" ? (sortOrder === "asc" ? "↑" : "↓") : ""}
+            </button>
+            <button
+              onClick={() => { setSortField(""); setSortOrder("asc"); }}
+              style={{ padding: "4px 8px", border: "1px solid #ccc" }}
+            >
+              Clear sort
+            </button>
+          </div>
         </div>
         <p style={{ marginTop: 4, color: "#555" }}>{courses.length} results</p>
 

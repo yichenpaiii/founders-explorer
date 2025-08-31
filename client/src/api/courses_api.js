@@ -1,4 +1,4 @@
-export async function getCourses({ page, pageSize, q, type, semester, creditsMin, creditsMax, availablePrograms } = {}) {
+export async function getCourses({ page, pageSize, q, type, semester, creditsMin, creditsMax, availablePrograms, sortField, sortOrder } = {}) {
   try {
     const url = new URL("/api/courses", "http://localhost:3000");
 
@@ -16,6 +16,8 @@ export async function getCourses({ page, pageSize, q, type, semester, creditsMin
     } else if (typeof availablePrograms === 'string' && availablePrograms.trim()) {
       url.searchParams.set('available_programs', availablePrograms.trim());
     }
+    if (sortField) url.searchParams.set('sortField', sortField);
+    if (sortOrder) url.searchParams.set('sortOrder', sortOrder);
 
     const res = await fetch(url.toString());
 

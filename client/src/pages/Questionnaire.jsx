@@ -245,6 +245,21 @@ function Questionnaire() {
         }
     };
 
+    // Compute if we can go back to a previous meaningful step (one that has options)
+    const previousStepIndex = (() => {
+        let idx = currentStep - 1;
+        while (idx >= 0) {
+            const opts = computeOptions(idx, formData, programsTree);
+            if (Array.isArray(opts) && opts.length > 0) return idx;
+            idx--;
+        }
+        return -1;
+    })();
+    const canGoBack = previousStepIndex >= 0;
+    const goBack = () => {
+        if (canGoBack) setCurrentStep(previousStepIndex);
+    };
+
     // Auto-advance when options are empty; define this hook before any early return
     useEffect(() => {
         // Do nothing while loading tree
@@ -296,6 +311,7 @@ function Questionnaire() {
                                 ))}
                             </select>
                             <button onClick={() => handleAnswer(formData[q.key])} disabled={!formData[q.key]}>Next</button>
+                            <button onClick={goBack} disabled={!canGoBack}>Back</button>
                         </div>
                     ) : (
                         <div style={{display: 'flex', flexDirection: 'row', gap: '10px', justifyContent: 'center', alignItems: 'center'}}>
@@ -307,6 +323,7 @@ function Questionnaire() {
                                     </button>
                                 ));
                             })()}
+                            <button onClick={goBack} disabled={!canGoBack}>Back</button>
                         </div>
                     )}
                 </div>
