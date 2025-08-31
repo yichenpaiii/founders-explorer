@@ -156,12 +156,13 @@ router.get('/', async (req, res) => {
     const dir = String(sortOrder).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
     let orderBy = `\nORDER BY c.course_name ASC`;
 
-    // Workload numeric normalization (robust): extract the leading number and
-    // convert semester totals to a weekly equivalent (~14 weeks) for sorting.
-    // Uses MySQL 8.0 REGEXP_SUBSTR to avoid casting '' to 0.
-    const wlNumStr = `REGEXP_SUBSTR(TRIM(COALESCE(c.workload, '')), '[0-9]+(?:\\.[0-9]+)?')`;
-    const wlNumeric = `NULLIF(${wlNumStr}, '')`;
-    const wlNumericDec = `CAST(${wlNumeric} AS DECIMAL(10,2))`;
+    // Workload numeric normalization compatible with MySQL 5.7+/MariaDB:
+    // 1) Take prefix before 'hrs' as numeric candidate
+    // 2) Validate numeric with REGEXP
+    // 3) Convert semester totals to weekly equivalent by dividing by ~14
+    const wlPrefix = `TRIM(SUBSTRING_INDEX(TRIM(COALESCE(c.workload, '')), 'hrs', 1))`;
+    const wlIsNum = `${wlPrefix} REGEXP '^[0-9]+(\\.[0-9]+)?$'`;
+    const wlNumericDec = `CASE WHEN ${wlIsNum} THEN CAST(${wlPrefix} AS DECIMAL(10,2)) ELSE NULL END`;
     const wlWeeklyEq = `CASE WHEN c.workload LIKE '%hrs/week%'
                               THEN ${wlNumericDec}
                               WHEN c.workload LIKE '%hrs/semester%'
