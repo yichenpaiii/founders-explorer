@@ -1,6 +1,9 @@
+// NOTE: Place programs_tree.json under client/public/ so it is served at /programs_tree.json
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 function Questionnaire() {
+    const navigate = useNavigate();
     const [currentStep, setCurrentStep] = useState(0);
     const [formData, setFormData] = useState({
         program: '',
@@ -9,142 +12,228 @@ function Questionnaire() {
         minor: ''
     });
     const [isFinished, setIsFinished] = useState(false);
+    const [programsTree, setProgramsTree] = useState(null);
+    const [loadError, setLoadError] = useState(null);
+
+    useEffect(() => {
+        async function loadTree() {
+            try {
+                // programs_tree.json must be placed under client/public
+                const res = await fetch('/programs_tree.json', { cache: 'no-store' });
+                if (!res.ok) throw new Error(`Failed to fetch programs_tree.json: ${res.status}`);
+                const ctype = res.headers.get('content-type') || '';
+                if (!ctype.includes('application/json')) {
+                    // Avoid parsing HTML error pages as JSON
+                    const text = await res.text();
+                    throw new Error(`Unexpected content-type: ${ctype}. Body starts with: ${text.slice(0, 60)}`);
+                }
+                const json = await res.json();
+                setProgramsTree(json);
+            } catch (e) {
+                console.error(e);
+                setLoadError(e.message || String(e));
+            }
+        }
+        loadTree();
+    }, []);
+
+    // Submit handler
+    const handleSubmit = () => {
+        // Build the available_program tags from answers
+        const p = (formData.program || '').trim();
+        const sem = (formData.semester || '').trim();
+        const major = (formData.major || '').trim();
+        const minor = (formData.minor || '').trim();
+
+        const tags = [];
+
+        if ((p === 'BA' || p === 'MA') && sem && major) {
+            tags.push(`${sem} ${major}`); // e.g., MA2 Computer Science, BA1 Architecture
+        } else if (p === 'PhD' && major) {
+            tags.push(`edoc ${major}`); // follow data-scraper canonical PhD bucket
+        }
+
+        if (p === 'MA' && minor) {
+            // Build canonical Minor tag with season from semester and selected minor
+            const semLower = sem.toLowerCase();
+            let season = '';
+            const m = sem.match(/^MA(\d+)$/i);
+            if (m) {
+                const n = parseInt(m[1], 10);
+                season = (n % 2 === 1) ? 'Minor Autumn Semester' : 'Minor Spring Semester';
+            } else if (semLower.includes('autumn')) {
+                season = 'Minor Autumn Semester';
+            } else if (semLower.includes('spring')) {
+                season = 'Minor Spring Semester';
+            }
+            if (season) {
+                tags.push(`${season} ${minor}`);
+            } else {
+                // Fallback without season (less specific)
+                tags.push(`Minor ${minor}`);
+            }
+        }
+
+        // Navigate to courses with available_programs filter
+        if (tags.length) {
+            const qs = new URLSearchParams({ available_programs: tags.join(',') }).toString();
+            navigate(`/courses?${qs}`);
+        } else {
+            // Fallback: just finish
+            setIsFinished(true);
+        }
+    };
+
+    // Compute options for the current step without using hooks later in the tree.
+    const computeOptions = (stepIndex, data, tree) => {
+        if (!tree) return [];
+        const safeKeys = (obj) => obj ? Object.keys(obj) : [];
+        const isMinorSemester = (s) => typeof s === 'string' && s.toLowerCase().includes('minor');
+        const step = [
+            {
+                key: 'program',
+                get: () => {
+                    const base = safeKeys(tree);
+                    if (base.length === 0) return [];
+                    return [...base, 'Other'];
+                }
+            },
+            {
+                key: 'semester',
+                get: () => {
+                    const p = data.program;
+                    if (!p || !tree || !tree[p]) return [];
+                    if (p === 'PhD') return [];
+                    const keys = Object.keys(tree[p] || {});
+                    if (p === 'MA') {
+                        const semesters = keys.filter(k => /^MA\d+$/i.test(k));
+                        return semesters.length ? [...semesters, 'Other'] : ['Other'];
+                    }
+                    if (p === 'BA') {
+                        const semesters = keys.filter(k => /^BA\d+$/i.test(k));
+                        return semesters.length ? [...semesters, 'Other'] : ['Other'];
+                    }
+                    return ['Other'];
+                }
+            },
+            {
+                key: 'major',
+                get: () => {
+                    const p = data.program;
+                    if (!p) return [];
+                    if (p === 'PhD') {
+                        const list = Array.isArray(tree.PhD?.edoc) ? tree.PhD.edoc : [];
+                        return list.length ? [...list, 'Other'] : ['Other'];
+                    }
+                    const sem = data.semester;
+                    if (!sem || !tree[p]) return [];
+                    const bucket = tree[p];
+                    const list = Array.isArray(bucket?.[sem]) ? bucket[sem] : [];
+                    return list.length ? [...list, 'Other'] : ['Other'];
+                }
+            },
+            {
+                key: 'minor',
+                get: () => {
+                    if (data.program !== 'MA') return [];
+                    const sem = data.semester || '';
+                    const semLower = sem.toLowerCase();
+                    const autumn = Array.isArray(tree.MA?.['Minor Autumn Semester']) ? tree.MA['Minor Autumn Semester'] : [];
+                    const spring = Array.isArray(tree.MA?.['Minor Spring Semester']) ? tree.MA['Minor Spring Semester'] : [];
+                    let list = [];
+                    const m = sem.match(/^MA(\d+)$/i);
+                    if (m) {
+                        const n = parseInt(m[1], 10);
+                        list = (n % 2 === 1) ? autumn : spring;
+                    } else if (semLower.includes('project autumn semester') || semLower.includes('autumn')) {
+                        list = autumn;
+                    } else if (semLower.includes('project spring semester') || semLower.includes('spring')) {
+                        list = spring;
+                    } else {
+                        const set = new Set([...autumn, ...spring]);
+                        list = [...set];
+                    }
+                    return list.length ? [...list, 'Other'] : ['Other'];
+                }
+            }
+        ][stepIndex];
+        return step ? step.get() : [];
+    };
 
     const allQuestions = [
         {
             key: 'program',
             question: 'Which program are you in?',
-            options: ['Bachelor', 'Master', 'PhD']
-        },{
+            getOptions: () => {
+                const base = Object.keys(programsTree || {});
+                if (base.length === 0) return [];
+                return [...base, 'Other'];
+            }
+        },
+        {
             key: 'semester',
             question: 'Which semester?',
             getOptions: (formData) => {
-                if (formData.program === 'Bachelor') return ['BA1', 'BA2', 'BA3', 'BA4', 'BA5', 'BA6'];
-                if (formData.program === 'Master') return ['MA1', 'MA2', 'MA3', 'MA4'];
-                return [];
+                const p = formData.program;
+                if (!p || !programsTree || !programsTree[p]) return [];
+                if (p === 'PhD') return [];
+                const keys = Object.keys(programsTree[p] || {});
+                if (p === 'MA') {
+                    const semesters = keys.filter(k => /^MA\d+$/i.test(k));
+                    return semesters.length ? [...semesters, 'Other'] : ['Other'];
+                }
+                if (p === 'BA') {
+                    const semesters = keys.filter(k => /^BA\d+$/i.test(k));
+                    return semesters.length ? [...semesters, 'Other'] : ['Other'];
+                }
+                return ['Other'];
             }
-        },{
+        },
+        {
             key: 'major',
             question: 'Which major?',
             getOptions: (formData) => {
-                if (formData.program === 'Bachelor') return [
-                    'Architecture',
-                    'Chemistry and Chemical Engineering',
-                    'Civil Engineering',
-                    'Communication Systems',
-                    'Computer Science',
-                    'Electrical and Electronics Engineering',
-                    'Environmental Sciences and Engineering',
-                    'Life Sciences Engineering',
-                    'Materials Science and Engineering',
-                    'Mathematics',
-                    'Mechanical Engineering',
-                    'Microengineering',
-                    'Physics'
-                ];
-                if (formData.program === 'Master') return [
-                    'Applied Mathematics',
-                    'Architecture',
-                    'Chemical Engineering and Biotechnology',
-                    'Civil Engineering',
-                    'Communication Systems',
-                    'Computational science and Engineering',
-                    'Computer Science',
-                    'Cyber Security',
-                    'Data Science',
-                    'Digital Humanities',
-                    'Electrical and Electronic Engineering',
-                    'Energy Science and Technology',
-                    'Environmental Sciences and Engineering',
-                    'Financial Engineering',
-                    'Life Sciences Engineering',
-                    'Management, Technology and Entrepreneurship',
-                    'Materials Science and Engineering',
-                    'Mathematics',
-                    'Mechanical Engineering',
-                    'Microengineering',
-                    'Molecular and Biological Chemistry',
-                    'Neuro-X',
-                    'Nuclear Engineering',
-                    'Physics and Applied Physics',
-                    'Quantum Science and Engineering',
-                    'Robotics',
-                    'Statistics',
-                    'Sustainable Management and Technology',
-                    'Urban Systems'
-                ];
-                if (formData.program === 'PhD') return [
-                    'Advanced Manufacturing',
-                    'Architecture and Sciences of the City',
-                    'Biotechnology and Bioengineering',
-                    'Chemistry and Chemical Engineering',
-                    'Civil and Environmental Engineering',
-                    'Computational and Quantitative Biology',
-                    'Computer and Communication Sciences',
-                    'Digital Humanities',
-                    'Electrical Engineering',
-                    'Energy',
-                    'Finance',
-                    'Learning Sciences',
-                    'Management of Technology',
-                    'Materials Science and Engineering',
-                    'Mathematics',
-                    'Mechanics',
-                    'Microsystems and Microelectronics',
-                    'Molecular Life Sciences',
-                    'Neuroscience',
-                    'Photonics',
-                    'Physics',
-                    'Robotics, Control and Intelligent Systems'
-                ]
+                if (!programsTree) return [];
+                const p = formData.program;
+                if (!p) return [];
+                if (p === 'PhD') {
+                    const list = Array.isArray(programsTree.PhD?.edoc) ? programsTree.PhD.edoc : [];
+                    return list.length ? [...list, 'Other'] : ['Other'];
+                }
+                const sem = formData.semester;
+                if (!sem || !programsTree[p]) return [];
+                const bucket = programsTree[p];
+                const list = Array.isArray(bucket?.[sem]) ? bucket[sem] : [];
+                return list.length ? [...list, 'Other'] : ['Other'];
             }
-        },{
+        },
+        {
             key: 'minor',
             question: 'Which minor?',
             getOptions: (formData) => {
-                if (formData.program === 'Master') {
-                return [
-                    'Architecture',
-                    'Biomedical Technologies',
-                    'Biotechnology',
-                    'Chemistry and Chemical Engineering',
-                    'Civil Engineering',
-                    'Communication Systems',
-                    'Computational Biology',
-                    'Computational Science and Engineering',
-                    'Computer science',
-                    'Cyber Security',
-                    'Data and Internet of Things',
-                    'Data Science',
-                    'Digital Humanities, Media and Society',
-                    'Electrical and Electronic Engineering',
-                    'Energy',
-                    'Engineering for sustainability',
-                    'Environmental Sciences and Engineering',
-                    'Financial engineering',
-                    'Imaging',
-                    'Integrated Design, Architecture and Sustainability (IDEAS)',
-                    'Life Sciences Engineering',
-                    'Materials Science and Engineering',
-                    'Mathematics',
-                    'Mechanical Engineering',
-                    'Microengineering',
-                    'Neuro-X',
-                    'Photonics',
-                    'Physics',
-                    'Physics of Living Systems',
-                    'Quantum Science and Engineering',
-                    'Spacial Technologies',
-                    'Statistics',
-                    'Systems Engineering',
-                    'Technology management and entrepreneurship',
-                    'Territories in Transformation and Climate (TTC)'
-                ];
+                if (!programsTree) return [];
+                if (formData.program !== 'MA') return [];
+                const sem = formData.semester || '';
+                const semLower = sem.toLowerCase();
+                const autumn = Array.isArray(programsTree.MA?.['Minor Autumn Semester']) ? programsTree.MA['Minor Autumn Semester'] : [];
+                const spring = Array.isArray(programsTree.MA?.['Minor Spring Semester']) ? programsTree.MA['Minor Spring Semester'] : [];
+                let list = [];
+                const m = sem.match(/^MA(\d+)$/i);
+                if (m) {
+                    const n = parseInt(m[1], 10);
+                    list = (n % 2 === 1) ? autumn : spring;
+                } else if (semLower.includes('project autumn semester') || semLower.includes('autumn')) {
+                    list = autumn;
+                } else if (semLower.includes('project spring semester') || semLower.includes('spring')) {
+                    list = spring;
+                } else {
+                    const set = new Set([...autumn, ...spring]);
+                    list = [...set];
                 }
-                return []; // No options if not Master
+                return list.length ? [...list, 'Other'] : ['Other'];
             }
-            }
-    ]
+        }
+    ];
 
     const handleAnswer = (value) => {
         const key = allQuestions[currentStep].key;
@@ -156,25 +245,37 @@ function Questionnaire() {
         }
     };
 
-    const handleSubmit = () => {
-        setIsFinished(true);
-    };
-
-    const q = allQuestions[currentStep];
-
-    // Determine options for current question, either from options or getOptions
-    let options = q.options;
-    if (!options && q.getOptions) {
-        options = q.getOptions(formData);
-    }
-    if (!options) options = [];
-
-    // If options is empty array, automatically skip to next step with empty string answer
+    // Auto-advance when options are empty; define this hook before any early return
     useEffect(() => {
-        if (options.length === 0) {
+        // Do nothing while loading tree
+        if (!programsTree && !loadError) return;
+        const opts = computeOptions(currentStep, formData, programsTree);
+        if (Array.isArray(opts) && opts.length === 0) {
+            // Skip this step with empty answer for this key
             handleAnswer('');
         }
-    }, [currentStep]); // run when currentStep changes
+    }, [currentStep, programsTree, loadError]);
+
+    const safeKeys = (obj) => obj ? Object.keys(obj) : [];
+    const isMinorSemester = (s) => typeof s === 'string' && s.toLowerCase().includes('minor');
+
+
+    if (!programsTree && !loadError) {
+        return <div style={{display:'flex',justifyContent:'center',alignItems:'center',height:'100vh',width:'100vw'}}><h2>Loading options…</h2></div>;
+    }
+    if (loadError) {
+        return <div style={{display:'flex',justifyContent:'center',alignItems:'center',height:'100vh',width:'100vw'}}><h2>Failed to load options</h2><p>{String(loadError)}</p></div>;
+    }
+
+    const q = allQuestions[currentStep];
+    let options = [];
+    if (q.getOptions) {
+        options = q.getOptions(formData) || [];
+    } else if (q.options) {
+        options = q.options || [];
+    }
+
+    // (auto-advance handled by the earlier effect to keep Hooks order stable)
 
     return (
         <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh',width: '100vw'}}>
@@ -198,11 +299,14 @@ function Questionnaire() {
                         </div>
                     ) : (
                         <div style={{display: 'flex', flexDirection: 'row', gap: '10px', justifyContent: 'center', alignItems: 'center'}}>
-                            {options.map(opt => (
-                                <button key={opt} onClick={() => handleAnswer(opt)}>
-                                    {opt}
-                                </button>
-                            ))}
+                            {(() => {
+                                const opts = options.includes('Other') ? options : [...options, 'Other'];
+                                return opts.map(opt => (
+                                    <button key={opt} onClick={() => handleAnswer(opt)}>
+                                        {opt}
+                                    </button>
+                                ));
+                            })()}
                         </div>
                     )}
                 </div>

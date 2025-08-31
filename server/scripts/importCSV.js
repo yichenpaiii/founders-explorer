@@ -90,12 +90,12 @@ async function main() {
         const EXAM_FORM_COL = 'exam_form';
         const WORKLOAD_COL = 'workload';
         const TYPE_COL = 'type';
+        const LANG_COL = 'lang';
+        const SECTION_COL = 'section';
 
         // Filter tag columns: keep only these in tags/tag_types
         // (keywords and available_programs may be list-like values)
         const TAG_TYPE_COLUMNS = [
-          'lang',
-          'section',
           'keywords',
           'available_programs'
         ];
@@ -124,6 +124,9 @@ async function main() {
           else if (/(elective|optional)/i.test(typeRaw)) courseType = 'optional';
         }
 
+        // NOT NULL fallbacks for normalized schema
+        const lang = ((row[LANG_COL] || '').toString().trim()) || 'unknown';
+        const section = ((row[SECTION_COL] || '').toString().trim()) || null; // section may be null; we only insert offering if present
 
         if (!courseName) {
             console.warn(`Row ${i + 1} has no course_name; skipped`);
@@ -135,14 +138,34 @@ async function main() {
         try {
             await conn.beginTransaction();
 
-            // Insert the course and capture its ID (matches new schema)
+            // Upsert course into normalized schema (unique by course_code) and get id
             const [cr] = await conn.execute(
-                `INSERT INTO courses (course_name, course_code, url, prof_name, credits, semester, exam_form, workload, type)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [courseName, courseCode, url, profName, credits, semester, examForm, workload, courseType]
+              `INSERT INTO courses (course_name, course_code, course_url, credits, lang, semester, exam_form, workload)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+               ON DUPLICATE KEY UPDATE
+                 course_name = VALUES(course_name),
+                 course_url  = VALUES(course_url),
+                 credits     = VALUES(credits),
+                 lang        = VALUES(lang),
+                 semester    = VALUES(semester),
+                 exam_form   = VALUES(exam_form),
+                 workload    = VALUES(workload),
+                 id = LAST_INSERT_ID(id)`,
+              [courseName, courseCode, url, credits, lang, semester || 'unknown', examForm, workload]
             );
 
             const courseId = cr.insertId;
+
+            if (section) {
+              await conn.execute(
+                `INSERT INTO course_offerings (course_id, section, type, prof_name)
+                 VALUES (?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE
+                   type = VALUES(type),
+                   prof_name = VALUES(prof_name)`,
+                [courseId, section, courseType, profName]
+              );
+            }
 
             // For each selected column, treat its values as tags under that "type"
             for (const typeName of TAG_TYPE_COLUMNS) {

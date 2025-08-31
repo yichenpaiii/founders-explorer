@@ -10,14 +10,34 @@ CREATE TABLE IF NOT EXISTS courses (
   id INT AUTO_INCREMENT PRIMARY KEY,
   course_name VARCHAR(512) NOT NULL,
   course_code VARCHAR(128) NOT NULL,
-  url VARCHAR(1024),
-  prof_name VARCHAR(512),
+  course_url VARCHAR(1024),
   credits INT NOT NULL,
-  semester VARCHAR(64),
+  lang VARCHAR(64) NOT NULL,
+  semester VARCHAR(64) NOT NULL,
   exam_form VARCHAR(128),
   workload VARCHAR(128),
-  type ENUM('mandatory', 'optional') NOT NULL
+  UNIQUE KEY uniq_course_code (course_code)
 );
+
+-- Course offerings (section-level) table
+CREATE TABLE IF NOT EXISTS course_offerings (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  course_id INT NOT NULL,
+  section VARCHAR(64) NOT NULL,
+  type ENUM('mandatory', 'optional') NOT NULL,
+  prof_name VARCHAR(512),
+  UNIQUE KEY uniq_course_section (course_id, section),
+  INDEX idx_offerings_course (course_id),
+  INDEX idx_offerings_section (section),
+  INDEX idx_offerings_type (type),
+  FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+);
+
+-- Backward-compatibility view (optional): exposes `url` as alias of `course_url`
+DROP VIEW IF EXISTS courses_with_url;
+CREATE VIEW courses_with_url AS
+  SELECT id, course_name, course_code, course_url AS url, credits, lang, semester, exam_form, workload
+  FROM courses;
 
 -- Tag types table
 CREATE TABLE IF NOT EXISTS tag_types (
@@ -27,8 +47,6 @@ CREATE TABLE IF NOT EXISTS tag_types (
 
 -- Seed filter tag types
 INSERT IGNORE INTO tag_types (name) VALUES
-  ('lang'),
-  ('section'),
   ('keywords'),
   ('available_programs');
 
