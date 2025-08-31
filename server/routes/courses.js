@@ -156,13 +156,16 @@ router.get('/', async (req, res) => {
     const dir = String(sortOrder).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
     let orderBy = `\nORDER BY c.course_name ASC`;
 
-    // Workload numeric normalization (e.g., "10hrs/week" vs "30hrs/semester")
-    // Extract numeric and convert semester total to weekly equivalent by dividing ~14 weeks
-    const wlNumeric = `CAST(REPLACE(REPLACE(TRIM(c.workload), 'hrs/week', ''), 'hrs/semester', '') AS DECIMAL(10,2))`;
+    // Workload numeric normalization (robust): extract the leading number and
+    // convert semester totals to a weekly equivalent (~14 weeks) for sorting.
+    // Uses MySQL 8.0 REGEXP_SUBSTR to avoid casting '' to 0.
+    const wlNumStr = `REGEXP_SUBSTR(TRIM(COALESCE(c.workload, '')), '[0-9]+(?:\\.[0-9]+)?')`;
+    const wlNumeric = `NULLIF(${wlNumStr}, '')`;
+    const wlNumericDec = `CAST(${wlNumeric} AS DECIMAL(10,2))`;
     const wlWeeklyEq = `CASE WHEN c.workload LIKE '%hrs/week%'
-                              THEN ${wlNumeric}
+                              THEN ${wlNumericDec}
                               WHEN c.workload LIKE '%hrs/semester%'
-                              THEN ${wlNumeric} / 14
+                              THEN ${wlNumericDec} / 14
                               ELSE NULL END`;
 
     // relevance: simple score using LIKE hits; only when q present
