@@ -5,7 +5,8 @@ import CoursesList from "./pages/CoursesList.jsx";
 function App() {
   return (
     <Router>
-      <nav>
+      <nav style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px' }}>
+        <img src="/logo.svg" alt="Site logo" style={{ height: '28px' }} />
         <Link to="/courses">Courses</Link> | <Link to="/questionnaire">Questionnaire</Link>
       </nav>
       <Routes>
