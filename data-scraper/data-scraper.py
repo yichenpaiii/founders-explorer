@@ -1,20 +1,19 @@
 import requests
-import pandas as pd
 import os
 from lxml import etree
-import importlib
 import re
 import json
 import html
-import os
 import csv
-from openai import OpenAI
 import sys
 import time
+import hashlib
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+import hashlib
 
 section_codes = [
     "AR", "CGC", "CDH", "CDM", "ED", "GC", "EL",
-    "GM", "IN", "MX", "MA", "MT", "NX", "PH", "SIE", "SIQ", "SV", "SHS", "SC",
+    "GM", "IN", "MX", "MA", "MT", "MTE", "NX", "PH", "SIE", "SIQ", "SV", "SHS", "SC",
     "EDAM", "EDAR", "EDBB", "EDCB", "EDCE", "EDCH", "EDDH", "EDEE", "EDEY", "EDFI",
     "EDIC", "EDMA", "EDME", "EDMI", "EDMS", "EDMT", "EDMX", "EDNE", "EDPO", "EDPY", "EDRS", "EDLS"
 ]
@@ -77,169 +76,7 @@ def _norm(s: str) -> str:
     s = _def_ws_re.sub(" ", s)
     return s
 
-# --- Programs tree helpers (for canonical minor names) ---
-_PTREE = None
-_MINOR_CANON = {  # season_bucket -> {normalized_name: Canonical Name}
-    "Minor Autumn Semester": {},
-    "Minor Spring Semester": {},
-}
-_MA_CANON = {}   # e.g., 'MA1' -> {normalized_name: Canonical}
-_BA_CANON = {}   # e.g., 'BA3' -> {normalized_name: Canonical}
-_EDOC_CANON = {} # 'edoc' -> {normalized_name: Canonical}
-
-def _normalize_for_match(name: str) -> str:
-    """Normalize strings to improve matching across spelling/case variants.
-    - lowercase
-    - replace '&' with 'and'
-    - replace hyphens and slashes with spaces
-    - remove non-alphanumeric characters except spaces
-    - collapse whitespace
-    """
-    if not isinstance(name, str):
-        return ""
-    s = name.lower()
-    s = s.replace("&", " and ")
-    s = s.replace("/", " ").replace("-", " ")
-    s = re.sub(r"[^a-z0-9\s]", " ", s)
-    # drop common function words to ignore minor spelling variants
-    stop = {"in", "of", "the", "and", "for"}
-    s = " ".join(w for w in s.split() if w not in stop)
-    s = _def_ws_re.sub(" ", s).strip()
-    return s
-
-def _load_programs_tree():
-    global _PTREE, _MINOR_CANON, _MA_CANON, _BA_CANON, _EDOC_CANON
-    if _PTREE is not None:
-        return
-    try:
-        here = os.path.dirname(__file__)
-        path = os.path.join(here, "programs_tree.json")
-        with open(path, "r", encoding="utf-8") as f:
-            _PTREE = json.load(f)
-        # Build canonical maps for minors by season
-        ma = _PTREE.get("MA", {}) if isinstance(_PTREE, dict) else {}
-        for season in ("Minor Autumn Semester", "Minor Spring Semester"):
-            names = ma.get(season, []) or []
-            bucket = {}
-            for nm in names:
-                if isinstance(nm, str) and nm.strip():
-                    bucket[_normalize_for_match(nm)] = nm.strip()
-            _MINOR_CANON[season] = bucket
-        # Build MA level buckets MA1..MA4 and MA Project buckets if present
-        for key, names in (ma or {}).items():
-            if key.startswith("MA"):
-                # keep only MA1..MA4 and MA Project ... buckets
-                b = {}
-                for nm in (names or []):
-                    if isinstance(nm, str) and nm.strip():
-                        b[_normalize_for_match(nm)] = nm.strip()
-                _MA_CANON[key] = b
-        # Build BA buckets
-        ba = _PTREE.get("BA", {}) if isinstance(_PTREE, dict) else {}
-        for key, names in (ba or {}).items():
-            if key.startswith("BA"):
-                b = {}
-                for nm in (names or []):
-                    if isinstance(nm, str) and nm.strip():
-                        b[_normalize_for_match(nm)] = nm.strip()
-                _BA_CANON[key] = b
-        # Build edoc bucket
-        phd = _PTREE.get("PhD", {}) if isinstance(_PTREE, dict) else {}
-        edoc_list = phd.get("edoc", []) or []
-        _EDOC_CANON = { _normalize_for_match(nm): nm.strip() for nm in edoc_list if isinstance(nm, str) and nm.strip() }
-    except Exception as e:
-        warn(f"Failed to load programs_tree.json for minor mapping: {e}")
-        _PTREE = {}
-        _MINOR_CANON = {"Minor Autumn Semester": {}, "Minor Spring Semester": {}}
-        _MA_CANON, _BA_CANON, _EDOC_CANON = {}, {}, {}
-
-def _extract_minor_name_and_season(raw: str):
-    """From a raw available_programs label, extract (candidate_minor_name, season_bucket).
-    Returns (name_str, season_str|None). Name string is raw substring without trailing season words.
-    """
-    if not isinstance(raw, str):
-        return "", None
-    s = raw.strip()
-    sl = s.lower()
-    season_bucket = None
-    if "autumn" in sl or "fall" in sl:
-        season_bucket = "Minor Autumn Semester"
-    elif "spring" in sl:
-        season_bucket = "Minor Spring Semester"
-
-    # Common patterns:
-    # "Minor in X Autumn semester", "Minor of X Spring semester", "X minor Spring semester"
-    # Try to capture the 'X' portion.
-    patterns = [
-        r"minor\s+(?:in|of)\s+(.+?)(?:\s+(?:autumn|fall|spring)\s+semester\b|$)",
-        r"^\s*(.+?)\s+minor(?:\s+(?:autumn|fall|spring)\s+semester\b|$)",
-        r"minor\s+(?:autumn|fall|spring)\s+semester\s+(.+?)(?:\s*,?\s*\d{4}\s*-\s*\d{4}\s*,?\s*|$)",
-    ]
-    for pat in patterns:
-        m = re.search(pat, sl, flags=re.I)
-        if m:
-            # Extract the original-cased substring using the span on the lowercased string length
-            # Simpler: slice from original using the matched group boundaries on the lowercase; acceptable for our use.
-            name_part = m.group(1) or ""
-            # Remove excess punctuation/spaces
-            name_part = name_part.strip(" -:/,\u2022\u2027·•")
-            return name_part.strip(), season_bucket
-    # Fallback: remove keywords and keep remainder
-    tmp = sl
-    tmp = re.sub(r"\b(minor|in|of|semester|autumn|fall|spring)\b", " ", tmp)
-    tmp = _def_ws_re.sub(" ", tmp).strip()
-    return tmp, season_bucket
-
-def _strip_year_tokens(s: str) -> str:
-    if not isinstance(s, str):
-        return ""
-    # Remove patterns like ", 2025-2026," or "2025 - 2026"
-    s2 = re.sub(r"\s*,?\s*\b\d{4}\s*(?:-\s*\d{4})\b\s*,?\s*", " ", s)
-    s2 = _def_ws_re.sub(" ", s2).strip(" ,")
-    return s2
-
-def format_available_program_label(raw: str) -> str:
-    """Format a single available program label.
-    - For minors: map to canonical name from programs_tree using case-insensitive, spelling-normalized match,
-      and return "Minor Autumn/Spring Semester <Canonical Name>".
-    - Otherwise: fallback to generic formatter.
-    """
-    _load_programs_tree()
-    txt = _fix_mojibake(raw or "").strip()
-    txt = _strip_year_tokens(txt)
-    if not txt:
-        return ""
-    low = txt.lower()
-    if "minor" in low:
-        cand, season = _extract_minor_name_and_season(txt)
-        if not cand:
-            try:
-                UNMAPPED_PROGRAMS.add(txt)
-            except Exception:
-                pass
-            return txt
-        norm = _normalize_for_match(cand)
-        if season:
-            canon = _MINOR_CANON.get(season, {}).get(norm)
-            if canon:
-                return f"{season} {canon}"
-        else:
-            # If season missing, try both buckets to find a canonical name
-            for season_guess in ("Minor Autumn Semester", "Minor Spring Semester"):
-                canon = _MINOR_CANON.get(season_guess, {}).get(norm)
-                if canon:
-                    return f"{season_guess} {canon}"
-        # If we couldn't match canonically, record and keep original text
-        try:
-            UNMAPPED_PROGRAMS.add(txt)
-        except Exception:
-            pass
-        # Preserve some structure if season exists
-        if season:
-            return f"{season} {cand.strip()}".strip()
-        return txt
-    # Not a minor: use existing formatter
-    return format_program_name(txt)
+## Removed programs tree helpers and label formatter to keep the original simpler behavior
 
 # HTTP headers for polite requests
 headers = {
@@ -259,13 +96,6 @@ def warn(msg: str):
         sys.stderr.flush()
     except Exception:
         print(f"[WARN] {msg}")
-
-def info(msg: str):
-    try:
-        sys.stderr.write(f"[INFO] {msg}\n")
-        sys.stderr.flush()
-    except Exception:
-        print(f"[INFO] {msg}")
 
 def _count_nonempty(*vals) -> int:
     cnt = 0
@@ -368,168 +198,70 @@ def parse_keywords_field(raw):
     parts = [_fix_mojibake(p).rstrip('.\n') for p in parts]
     return _normalize_kw_list(parts)
 
-def format_program_name(prog: str) -> str:
-    """Normalize and canonicalize a program label (non-minor) using programs_tree.
-    Examples:
-      - "Computer Science, 2025-2026, Master semester 1" -> "MA1 Computer Science"
-      - "Architecture Master semester 2" -> "MA2 Architecture"
-      - Doctoral programs -> "edoc <Canonical>"
-    """
-    _load_programs_tree()
-    if not prog:
-        return ""
-    s = _strip_year_tokens(_fix_mojibake(str(prog))).strip()
-    sl = s.lower()
+def _canonicalize_prog_key(s: str) -> str:
+    s = (s or "").lower().strip()
+    s = re.sub(r"\s+", " ", s)
+    s = re.sub(r"[^a-z0-9&+/\- ]+", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
 
-    # Doctoral
-    if any(k in sl for k in ("edoc", "phd", "doctoral")):
-        # Try to find a canonical edoc program name in the string
-        raw_norm = _normalize_for_match(s)
-        cand = None
-        best_len = -1
-        for norm, canon in _EDOC_CANON.items():
-            if f" {norm} " in f" {raw_norm} " or raw_norm == norm:
-                if len(norm) > best_len:
-                    cand = canon
-                    best_len = len(norm)
-        return f"edoc {cand}".strip() if cand else f"edoc {s}".strip()
+def _apply_program_renames(name: str, renames: dict) -> str:
+    if not name:
+        return name
+    key = _canonicalize_prog_key(name)
+    return renames.get(key) or renames.get(name) or name
 
-    # Detect level and semester/project
-    level = None
-    sem = None
-    project_season = None  # "MA Project Autumn" or "MA Project Spring"
+def make_row_id(course_code: str, section_code: str, course_name: str) -> str:
+    """Create a stable short hash ID to link rows across CSVs."""
+    key = "||".join([
+        (course_code or "").strip().lower(),
+        (section_code or "").strip().lower(),
+        (course_name or "").strip().lower(),
+    ])
+    # 8-byte blake2b hex (16 hex chars) is compact and collision-resistant enough here
+    return hashlib.blake2b(key.encode("utf-8"), digest_size=8).hexdigest()
 
-    if re.search(r"\bmaster\b", sl) or re.search(r"\bma\b", sl):
-        level = "MA"
-    elif re.search(r"\bbachelor\b", sl) or re.search(r"\bba\b", sl):
-        level = "BA"
-
-    # MA/BA + explicit semester number
-    m = re.search(r"semester\s*(\d)", sl)
-    if m:
-        sem = m.group(1)
-
-    # Short forms like "MA2" or "BA3"
-    if sem is None:
-        m2 = re.search(r"\b(ma|ba)\s*(\d)\b", sl, flags=re.I)
-        if m2:
-            level = m2.group(1).upper()
-            sem = m2.group(2)
-
-    # MA Project autumn/spring
-    if re.search(r"\bproject\b", sl) and ("autumn" in sl or "fall" in sl or "spring" in sl):
-        if "autumn" in sl or "fall" in sl:
-            project_season = "MA Project Autumn"
-        elif "spring" in sl:
-            project_season = "MA Project Spring"
-        level = "MA"
-
-    # Extract candidate program name by removing level/semester tokens
-    tmp = s
-    tmp = re.sub(r"(?i)\b(master|bachelor)\b\s*", " ", tmp)
-    tmp = re.sub(r"(?i)\bsemester\s*\d\b", " ", tmp)
-    tmp = re.sub(r"(?i)\b(ma|ba)\s*\d\b", " ", tmp)
-    tmp = re.sub(r"(?i)\bproject\b\s*(autumn|fall|spring)?", " ", tmp)
-    tmp = re.sub(r"(?i)\bprogram\b", " ", tmp)
-    base_guess = _def_ws_re.sub(" ", tmp).strip(" -,/")
-
-    # Try canonical mapping using programs_tree
-    raw_norm = _normalize_for_match(base_guess or s)
-
-    if level == "MA":
-        # Decide bucket key
-        if project_season:
-            bucket = _MA_CANON.get(project_season, {})
-            # If project season bucket lacks entries (unlikely), fall back to MA buckets
-            if not bucket:
-                for key in ("MA1", "MA2", "MA3", "MA4"):
-                    bucket.update(_MA_CANON.get(key, {}))
-        elif sem:
-            bucket = _MA_CANON.get(f"MA{sem}", {})
-        else:
-            # If semester not found, search across MA1..MA4
-            bucket = {}
-            for key in ("MA1", "MA2", "MA3", "MA4"):
-                bucket.update(_MA_CANON.get(key, {}))
-        cand = None
-        best_len = -1
-        for norm, canon in bucket.items():
-            if f" {norm} " in f" {raw_norm} " or raw_norm == norm:
-                if len(norm) > best_len:
-                    cand = canon
-                    best_len = len(norm)
-        if cand and sem:
-            return f"MA{sem} {cand}".strip()
-        if cand and project_season:
-            return f"{project_season} {cand}".strip()
-        if cand:
-            return f"MA {cand}".strip()
-
-    if level == "BA":
-        bucket = {}
-        if sem:
-            bucket = _BA_CANON.get(f"BA{sem}", {})
-        if not bucket:
-            for key in ("BA1", "BA2", "BA3", "BA4", "BA5", "BA6"):
-                bucket.update(_BA_CANON.get(key, {}))
-        cand = None
-        best_len = -1
-        for norm, canon in bucket.items():
-            if f" {norm} " in f" {raw_norm} " or raw_norm == norm:
-                if len(norm) > best_len:
-                    cand = canon
-                    best_len = len(norm)
-        if cand and sem:
-            return f"BA{sem} {cand}".strip()
-        if cand:
-            return f"BA {cand}".strip()
-
-    # Fallback: if we got here, either level or canonical name was unclear
-    if level and (sem or project_season):
-        prefix = project_season if project_season else f"{level}{sem}"
-        return f"{prefix} {base_guess or s}".strip()
-    if level:
-        return f"{level} {base_guess or s}".strip()
-    # Give up and return cleaned input
+def force_english_course_url(url: str) -> str:
+    """Ensure the course page URL uses English by setting ww_c_langue=en."""
     try:
-        UNMAPPED_PROGRAMS.add(s)
+        if not url:
+            return url
+        parts = urlparse(url)
+        q = parse_qs(parts.query, keep_blank_values=True)
+        q['ww_c_langue'] = ['en']
+        new_query = urlencode(q, doseq=True)
+        return urlunparse((parts.scheme, parts.netloc, parts.path, parts.params, new_query, parts.fragment))
     except Exception:
-        pass
-    return base_guess or s
-    
-def generate_keywords_llm(text, n_min=min_keywords, n_max=max_keywords):
-    """Generate keywords using OpenAI API if OPENAI_API_KEY is set"""
-    try:
-        key = os.getenv("OPENAI_API_KEY")
-        if not key:
-            raise RuntimeError("OPENAI_API_KEY environment variable is missing. Please set it before running keyword generation.")
-        client = OpenAI(api_key=key)
-        prompt = (
-            "You are extracting concise topic keywords for a university course. "
-            f"Return ONLY a JSON array of {n_min} to {n_max} lowercase English keyword strings (no explanations). "
-            "Each keyword should be short (1-4 words) in English. Translate if the course text is in another language.\n\n"
-            "TEXT:\n" + text + "\n\nOUTPUT:"
-        )
-        resp = client.chat.completions.create(
-            model="gpt-5",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=100
-        )
-        content = resp.choices[0].message["content"].strip()
-        kws = parse_keywords_field(content)
-        return kws[:n_max]
-    except Exception as e:
-        print("[warn] LLM keyword generation failed:", e)
-        return []
+        return url
 
 def main():
-    output_csv = "epfl_courses.csv"
-    headers_list = ["course_code","lang","section","semester","prof_name","course_name","credits","exam_form","workload","type","keywords","available_programs","course_url"]
+    # Ensure data directory exists
+    data_dir = os.path.join(os.path.dirname(__file__), "data") if '__file__' in globals() else "data"
+    os.makedirs(data_dir, exist_ok=True)
+    output_csv = os.path.join(data_dir, "epfl_courses.csv")
+    embedding_csv = os.path.join(data_dir, "courses_embedding.csv")
+    headers_list = [
+        "row_id","course_code","lang","section","semester","prof_name","course_name",
+        "credits","exam_form","workload","type","keywords","available_programs","course_url"
+    ]
     with open(output_csv, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(headers_list)
+    # New CSV for embedding text (summary + content)
+    with open(embedding_csv, "w", newline="", encoding="utf-8") as f:
+        emb_writer = csv.writer(f)
+        emb_writer.writerow(["row_id", "text"])  # combined resume+content
     unknown_sections = set()
     all_programs = set()
+    # Load program renames mapping if present
+    renames = {}
+    try:
+        with open(os.path.join(data_dir, "program_renames.json"), "r", encoding="utf-8") as rf:
+            _r = json.load(rf)
+            if isinstance(_r, dict):
+                renames = _r
+    except Exception:
+        renames = {}
     try:
         # Loop through each section and fetch data
         for section in section_codes:
@@ -553,7 +285,7 @@ def main():
                     available_programs = []
                     resume_text = ""
                     content_text = ""
-                    course_url = course.get("X_URL", "")
+                    course_url = force_english_course_url(course.get("X_URL", ""))
                     if course_url:
                         try:
                             t1 = time.perf_counter()
@@ -562,11 +294,6 @@ def main():
                             if dt1_ms > SLOW_REQ_MS:
                                 warn(f"Slow course page fetch ({dt1_ms} ms): {course.get('C_CODECOURS', '')} -> {course_url}")
                             page_resp.raise_for_status()
-                            # print(f"[debug] Content-Type: {page_resp.headers.get('Content-Type', '')}")
-                            # with open("body_preview.txt", "w") as file:
-                            #     file.write(page_resp.text)
-                            # exit()
-                            # Parse using bytes; let lxml auto-detect encoding from declarations/meta
                             content_type = page_resp.headers.get('Content-Type', '').lower()
                             content_bytes = page_resp.content
                             root = None
@@ -611,8 +338,7 @@ def main():
                                 # extract numeric quantity from quant
                                 num = 0.0
                                 try:
-                                    import re as _re
-                                    m = _re.search(r"[\d.]+", quant or "")
+                                    m = re.search(r"[\d.]+", quant or "")
                                     if m:
                                         num = float(m.group(0))
                                 except Exception:
@@ -641,8 +367,9 @@ def main():
                             credits = _fix_mojibake(credits)
                             exam_form = _fix_mojibake(exam_form)
                             course_type = _fix_mojibake(course_type)
-                            # Normalize available programs, with special canonical handling for minors via programs_tree
-                            available_programs = [format_available_program_label(x) for x in available_programs]
+                            # Normalize using mojibake fix, then map via renames
+                            available_programs = [_fix_mojibake(x) for x in available_programs]
+                            available_programs = [_apply_program_renames(x, renames) for x in available_programs]
                             for _p in available_programs:
                                 all_programs.add(_p)
                             # Extract resume/summary and content blocks
@@ -667,33 +394,6 @@ def main():
                             warn(f"[TIMEOUT] Course page timed out: {course.get('C_CODECOURS', '')} -> {course_url}")
                         except Exception as page_err:
                             warn(f"Could not read course page {course_url}: {page_err}")
-                    # If no keywords or not enough, try to supplement with LLM
-                    # keywords_method = "original"
-                    # if len(keywords) < 5:
-                    #     course_text = " ".join([
-                    #         course.get("X_MATIERE", ""),
-                    #         resume_text or "",
-                    #         content_text or "",
-                    #     ])
-                    #     print(course_text)
-                    #     original_keywords = list(keywords)  # preserve current
-                    #     kws_llm = generate_keywords_llm(course_text, n_min=min_keywords, n_max=max_keywords)
-                    #     if kws_llm:
-                    #         # merge while preserving order and avoiding duplicates
-                    #         merged = []
-                    #         seen = set()
-                    #         for k in _normalize_kw_list(original_keywords):
-                    #             if k not in seen:
-                    #                 merged.append(k)
-                    #                 seen.add(k)
-                    #         for k in _normalize_kw_list(kws_llm):
-                    #             if k not in seen:
-                    #                 merged.append(k)
-                    #                 seen.add(k)
-                    #             if len(merged) >= max_keywords:
-                    #                 break
-                    #         keywords = merged
-                    #         keywords_method = "original+LLM" if original_keywords else "LLM"
                     # --- Diagnostics: immediate terminal warnings for suspiciously empty rows ---
                     nonempty_core = _count_nonempty(credits, exam_form, workload, course_type, keywords, available_programs)
                     if nonempty_core < MIN_FIELDS_TO_CONSIDER_OK:
@@ -726,7 +426,13 @@ def main():
                         # Sanitize course name before writing row
                         course_name_raw = course.get("X_MATIERE", "")
                         course_name = _fix_mojibake(course_name_raw).rstrip()
+                        row_id = make_row_id(
+                            course.get("C_CODECOURS", ""),
+                            section_code,
+                            course_name
+                        )
                         row = [
+                            row_id,
                             course.get("C_CODECOURS", ""),
                             course.get("C_LANGUEENS", ""),
                             section_code,
@@ -739,26 +445,28 @@ def main():
                             course_type,
                             keywords,
                             available_programs,
-                            course.get("X_URL", "")
+                            course_url,
                         ]
                         with open(output_csv, "a", newline="", encoding="utf-8") as f:
                             writer = csv.writer(f)
                             writer.writerow(row)
+                        # Write embedding text if any
+                        text_parts = []
+                        if resume_text:
+                            text_parts.append(resume_text)
+                        if content_text:
+                            text_parts.append(content_text)
+                        combined_text = "\n\n".join([t for t in text_parts if t]).strip()
+                        if combined_text:
+                            with open(embedding_csv, "a", newline="", encoding="utf-8") as f:
+                                emb_writer = csv.writer(f)
+                                emb_writer.writerow([
+                                    row_id,
+                                    combined_text,
+                                ])
                         print("credits: ", credits, flush=True)
                         print("workload: ", workload, flush=True)
                         print("keywords: ", keywords, flush=True)
-                        # count += 1
-                        # if count >= 5:
-                        #     break
-                    # print("exam_form: ", exam_form)
-                    # print("courses_time: ", courses_time)
-                    # print("exercises_time: ", exercises_time)
-                    # print("project_time: ", project_time)
-                    # print("type: ", course_type)
-                    # print("keywords: ", keywords)
-                    # print("available_programs: ", available_programs)
-                # if count >= 5:
-                #     break
             except requests.exceptions.Timeout:
                 warn(f"[TIMEOUT] Section fetch timed out for {section}: {url}")
             except Exception as e:

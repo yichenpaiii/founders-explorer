@@ -1,15 +1,24 @@
 # ingest_programs.py
-import json, re, ast, sys
+import json, re, ast, sys, os
 from pathlib import Path
 
-JSON_PATH = Path("programs_tree.json")
+# Ensure data directory exists
+DATA_DIR = Path(__file__).parent / "data"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+JSON_PATH = DATA_DIR / "programs_tree.json"
 # Ensure the JSON file exists and is at least an empty JSON object
 if (not JSON_PATH.exists()) or JSON_PATH.stat().st_size == 0:
     JSON_PATH.write_text("{}\n", encoding="utf-8")
 
-# === Paste the whole set literal (including the braces) between the triple quotes ===
-RAW_SET_LITERAL = ['Materials Science and Engineering BA3', 'Microengineering MA Project autumn', 'Physics BA4', 'Passerelle HES - GM Spring semester', 'Mathematics - master program MA Project autumn', 'Materials Science and Engineering MA4', 'Minor in Quantum Science and Engineering Autumn semester', 'Molecular & Biological Chemistry MA3', 'Electrical and Electronics Engineering MA3', 'Electrical and Electronics Engineering BA3', 'Applied Physics MA Project spring', 'Computer science minor Spring semester', 'Electrical and Electronics Engineering BA2', 'Minor in Engineering for sustainability Autumn semester', 'Data Science MA3', 'Communication Systems BA5', 'Environmental Sciences and Engineering BA4', 'Electrical and Electronics Engineering MA2', 'Environmental Sciences and Engineering BA1', 'Financial engineering MA3', 'Microengineering BA6', 'Financial engineering MA2', 'Microengineering BA2', 'Energy Science and Technology Admission autumn', 'Civil Engineering BA1', 'Physics - master program MA3', 'Sustainable Construction minor Autumn semester', 'Electrical and Electronics Engineering MA4', 'Digital Humanities MA2', 'Photonics minor Spring semester', 'Photonics (edoc)', 'Physics - master program MA Project spring', 'Territories in transformation and climate minor Spring semester', 'Chemistry BA5', 'UNIL - HEC Autumn semester', 'Electrical and Electronics Engineering MA1', 'Computational science and Engineering MA4', 'Communication Systems - master program MA4', 'Computational science and Engineering MA Project autumn', 'Architecture MA4', 'Energy Science and Technology Admission spring', 'Humanities and Social Sciences Program BA2', 'Territories in transformation and climate minor Autumn semester', 'Environmental Sciences and Engineering BA2', 'Mathematics - master program MA3', 'Applied Mathematics MA3', 'Civil and Environmental Engineering (edoc)', 'Electrical and electronic engineering minor Autumn semester', 'Life Sciences Engineering BA2', 'Computer Science - Cybersecurity MA Project spring', 'Materials Science and Engineering BA4', 'Robotics MA4', 'Physics of living systems minor Spring semester', 'Architecture MA2', 'Minor in Imaging Autumn semester', 'Electrical and Electronics Engineering BA6', 'Architecture BA6', 'Mechanical Engineering MA1', 'Materials Science and Engineering MA2', 'Physics BA1', 'Computer Science - Cybersecurity MA3', 'Life Sciences Engineering BA5', 'Mathematics (edoc)', 'Molecular & Biological Chemistry MA2', 'Micro- and Nanotechnologies for Integrated Systems MA Project spring', 'Neuro-X minor Spring semester', 'Civil Engineering BA3', 'Minor in digital humanities media and society  Spring semester', 'Microengineering MA4', 'Urban systems MA2', 'Statistics MA Project spring', 'Mechanical engineering minor Spring semester', 'Minor in Integrated Design Architecture and Sustainability  Autumn semester', 'Photonics minor Autumn semester', 'Biotechnology minor Autumn semester', 'Robotics MA1', 'Financial engineering minor Spring semester', 'Sustainable Management and Technology MA2', 'Computer Science BA6', 'Civil Engineering MA4', 'Computational science and Engineering MA Project spring', 'Chemical Engineering BA5', 'Computational science and Engineering MA3', 'Life Sciences Engineering MA1', 'Molecular & Biological Chemistry MA4', 'UNIL - Collège des sciences Spring semester', 'Materials Science and Engineering BA1', 'Communication systems minor Autumn semester', 'Financial engineering MA4', 'Computer Science - Cybersecurity MA4', 'Robotics MA Project autumn', 'Chemistry BA6', 'Mathematics - master program MA2', 'Computer Science BA1', 'Sustainable Management and Technology MA1', 'Chemistry and Chemical Engineering BA1', 'Environmental Sciences and Engineering MA1', 'Microengineering BA4', 'Biotechnology minor Spring semester', 'Computer Science BA2', 'Nuclear engineering MA Project autumn', 'Minor in statistics Autumn semester', 'UNIL - Autres facultés Autumn semester', 'Computer Science - Cybersecurity MA Project autumn', 'Passerelle HES - GC Spring semester', 'Life Sciences Engineering BA3', 'UNIL - Sciences forensiques Autumn semester', 'Quantum Science and Engineering MA1', 'Physics BA6', 'Civil Engineering MA3', 'Management MA4', 'Mechanical Engineering MA Project autumn', 'Mathematics BA4', 'Communication systems minor Spring semester', 'Life Sciences Engineering MA Project spring', 'Applied Mathematics MA1', 'Mechanical Engineering MA2', 'Passerelle HES - SIE Autumn semester', 'Passerelle HES - GM Autumn semester', 'Materials Science and Engineering BA6', 'Mathematics BA2', 'Urban systems MA1', 'Physics BA5', 'Space technologies minor Autumn semester', 'Materials Science and Engineering MA3', 'Applied Mathematics MA Project spring', 'Passerelle HES - GC Autumn semester', 'UNIL - Collège des sciences Autumn semester', 'Civil engineering minor Autumn semester', 'Electrical and Electronics Engineering BA5', 'Auditeurs en ligne Autumn semester', 'Applied Mathematics MA Project autumn', 'Physics (edoc)', 'Nuclear engineering MA2', 'Chemical Engineering and Biotechnology MA3', 'Computational science and Engineering MA2', 'Energy (edoc)', 'Computer science minor Autumn semester', 'Digital humanities (edoc)', 'Communication Systems BA1', 'Mechanical Engineering MA4', 'Computer Science MA4', 'Civil Engineering MA Project autumn', 'Financial engineering minor Autumn semester', 'Humanities and Social Sciences Program MA1', 'Statistics MA3', 'Minor in life sciences engineering Spring semester', 'Statistics MA4', 'Mechanical Engineering BA4', 'Materials Science and Engineering MA1', 'Architecture BA2', 'Architecture MA Project autumn', 'Electrical Engineering (edoc)', 'Cyber security minor Spring semester', 'Neuro-X MA3', 'Space technologies minor Spring semester', 'Architecture BA3', 'Data and Internet of Things minor Spring semester', 'Advanced Manufacturing (edoc)', 'Passerelle HES - MT Spring semester', 'Computational biology minor Autumn semester', 'Microengineering BA1', 'Life Sciences Engineering BA4', 'Mathematics BA6', 'Communication Systems - master program MA Project autumn', 'Computational science and engineering minor Spring semester', 'Materials Science and Engineering (edoc)', 'Quantum Science and Engineering MA Project spring', 'Architecture MA Project spring', 'Humanities and Social Sciences Program BA3', 'Nuclear engineering MA Project spring', 'Data Science MA4', 'Statistics MA2', 'Nuclear engineering MA4', 'Physics - master program MA2', 'Computer Science BA3', 'Environmental Sciences and Engineering MA2', 'Minor in life sciences engineering Autumn semester', 'Data science minor Spring semester', 'Electrical and Electronics Engineering BA1', 'Statistics MA1', 'Data science minor Autumn semester', 'Electrical and Electronics Engineering BA4', 'Passerelle HES - AR Autumn semester', 'Passerelle HES - CGC Spring semester', 'Data Science MA Project autumn', 'Life Sciences Engineering MA2', 'Quantum Science and Engineering MA2', 'Chemical Engineering and Biotechnology MA Project spring', 'Mathematics - master program MA1', 'Applied Physics MA4', 'Civil Engineering MA1', 'Applied Physics MA2', 'Electrical and Electronics Engineering MA Project spring', 'Quantum Science and Engineering MA3', 'Sustainable Management and Technology Autumn semester', 'Environmental Sciences and Engineering BA6', 'Sustainable Management and Technology MA3', 'Mathematics BA3', 'Microengineering BA5', 'Environmental Sciences and Engineering MA Project autumn', 'Environmental Sciences and Engineering MA3', 'Management MA2', 'Passerelle HES - CGC Autumn semester', 'Mechanical Engineering BA6', 'Mechanical engineering minor Autumn semester', 'Energy minor Spring semester', 'Management of technology (edoc)', 'Communication Systems - master program MA2', 'Microengineering MA3', 'Micro- and Nanotechnologies for Integrated Systems MA4', 'Microsystems and Microelectronics (edoc)', 'Life Sciences Engineering MA4', 'Microengineering minor Autumn semester', 'Energy Science and Technology MA1', 'Mechanical Engineering BA1', 'Materials Science and Engineering BA2', 'Biomedical technologies minor Spring semester', 'Energy Science and Technology MA3', 'Finance (edoc)', 'Minor in Integrated Design Architecture and Sustainability  Spring semester', 'Chemical Engineering BA6', 'Neuro-X minor Autumn semester', 'Passerelle HES - IC Autumn semester', 'Environmental Sciences and Engineering BA3', 'AR Exchange Autumn semester', 'Environmental Sciences and Engineering MA4', 'Molecular & Biological Chemistry MA Project spring', 'Computational science and Engineering MA1', 'Physics BA3', 'Sustainable Construction minor Spring semester', 'Joint EPFL - ETH Zurich Doctoral Program in the Learning Sciences', 'Applied Mathematics MA2', 'Architecture BA4', 'Humanities and Social Sciences Program MA2', 'Energy Science and Technology MA Project spring', 'Computer Science MA Project autumn', 'Quantum Science and Engineering MA4', 'Neuroscience (edoc)', 'Data Science MA1', 'Architecture BA1', 'Civil Engineering BA4', 'Communication Systems - master program MA1', 'Systems Engineering minor Spring semester', 'UNIL - Autres facultés Spring semester', 'Chemical Engineering and Biotechnology MA1', 'Molecular & Biological Chemistry MA1', 'Computer and Communication Sciences (edoc)', 'Computer Science MA1', 'Materials Science and Engineering MA Project autumn', 'Humanities and Social Sciences Program BA5', 'Architecture MA1', 'Humanities and Social Sciences Program BA6', 'Computer Science MA Project spring', 'Management Technology and Entrepreneurship minor  Autumn semester', 'Mechanics (edoc)', 'Energy Science and Technology MA4', 'Communication Systems BA3', 'Mechanical Engineering BA3', 'Micro- and Nanotechnologies for Integrated Systems MA3', 'Microengineering MA1', 'Life Sciences Engineering BA6', 'Passerelle HES - EL Autumn semester', 'Management MA1', 'Statistics MA Project autumn', 'Digital Humanities MA1', 'Mathematics - master program MA Project spring', 'Minor in Engineering for sustainability Spring semester', 'Mathematics BA5', 'Quantum Science and Engineering MA Project autumn', 'Electrical and electronic engineering minor Spring semester', 'Digital Humanities MA4', 'Nuclear engineering MA3', 'Chemical Engineering and Biotechnology MA2', 'Passerelle HES - EL Spring semester', 'Neuro-X MA4', 'Life Sciences Engineering MA Project autumn', 'Civil Engineering BA2', 'UNIL - HEC Spring semester', 'Computer Science - Cybersecurity MA2', 'Communication Systems BA4', 'Chemistry and Chemical Engineering BA2', 'Communication Systems - master program MA3', 'Civil Engineering BA5', 'Electrical and Electronics Engineering MA Project autumn', 'Mechanical Engineering MA Project spring', 'Energy Science and Technology MA Project autumn', 'Civil Engineering MA Project spring', 'Physics - master program MA Project autumn', 'Applied Physics MA Project autumn', 'Civil Engineering MA2', 'Passerelle HES - SIE Spring semester', 'Robotics MA2', 'Neuro-X MA1', 'Materials Science and Engineering MA Project spring', 'Architecture BA5', 'Nuclear engineering MA1', 'Robotics MA3', 'Data Science MA Project spring', 'Physics BA2', 'Neuro-X MA Project autumn', 'Applied Physics MA3', 'Life Sciences Engineering BA1', 'Neuro-X MA Project spring', 'Mathematics BA1', 'Environmental Sciences and Engineering MA Project spring', 'Energy Science and Technology MA2', 'Minor in Imaging Spring semester', 'Passerelle HES - IC Spring semester', 'Systems Engineering minor Autumn semester', 'Passerelle HES - AR Spring semester', 'Computer Science BA5', 'Molecular & Biological Chemistry MA Project autumn', 'Computer Science - Cybersecurity MA1', 'Microengineering BA3', 'Computational science and engineering minor Autumn semester', 'Cyber security minor Autumn semester', 'Architecture MA3', 'Minor in statistics Spring semester', 'Hors plans Autumn semester', 'Minor in digital humanities media and society  Autumn semester', 'Mechanical Engineering BA2', 'Civil Engineering BA6', 'Mechanical Engineering MA3', 'Architecture and Sciences of the City (edoc)', 'Computer Science MA3', 'Digital Humanities MA3', 'Communication Systems BA2', 'Life Sciences Engineering MA3', 'Communication Systems - master program MA Project spring', 'Environmental Sciences and Engineering BA5', 'Computer Science BA4', 'Computational and Quantitative Biology (edoc)', 'Computer Science MA2', 'Applied Mathematics MA4', 'Communication Systems BA6', 'Mechanical Engineering BA5', 'Physics of living systems minor Autumn semester', 'Chemical Engineering and Biotechnology MA4', 'Biotechnology and Bioengineering (edoc)', 'Chemistry and Chemical Engineering (edoc)', 'Biomedical technologies minor Autumn semester', 'Physics - master program MA4', 'Minor in Quantum Science and Engineering Spring semester', 'Neuro-X MA2', 'Molecular Life Sciences (edoc)', 'Robotics Control and Intelligent Systems (edoc)', 'Microengineering MA Project spring', 'AR Exchange Spring semester', 'Microengineering minor Spring semester', 'Chemistry and Chemical Engineering BA3', 'Robotics MA Project spring', 'Management Technology and Entrepreneurship minor  Spring semester', 'Management MA3', 'Chemistry and Chemical Engineering BA4', 'Financial engineering MA1', 'Physics - master program MA1', 'Microengineering MA2', 'Humanities and Social Sciences Program BA4', 'Materials Science and Engineering BA5', 'Passerelle HES - MT Autumn semester', 'Civil engineering minor Spring semester', 'UNIL - Sciences forensiques Spring semester', 'Auditeurs en ligne Spring semester', 'Computational biology minor Spring semester', 'Applied Physics MA1', 'Chemical Engineering and Biotechnology MA Project autumn', 'Data Science MA2', 'Data and Internet of Things minor Autumn semester', 'Energy minor Autumn semester']
+# Define a separate rename map file and ensure it exists
+RENAMES_PATH = DATA_DIR / "program_renames.json"
+# Ensure the renames file exists and is at least an empty JSON object
+if (not RENAMES_PATH.exists()) or RENAMES_PATH.stat().st_size == 0:
+    RENAMES_PATH.write_text("{}\n", encoding="utf-8")
 
+# === Paste the whole set literal (including the braces) between the triple quotes ===
+RAW_SET_LITERAL = ['Computational science and Engineering, 2025-2026, Master semester 2', 'Sustainable Construction minor, 2025-2026, Autumn semester', 'Electrical and Electronics Engineering, 2025-2026, Bachelor semester 2', 'Physics, 2025-2026, Bachelor semester 3', 'Data and Internet of Things minor, 2025-2026, Autumn semester', 'Architecture, 2025-2026, Bachelor semester 6b', 'Neuroscience (edoc), 2025-2026', 'Communication Systems, 2025-2026, Bachelor semester 1', 'Minor in Imaging, 2025-2026, Spring semester', 'Quantum Science and Engineering, 2025-2026, Master semester 2', 'Environmental Sciences and Engineering, 2025-2026, Bachelor semester 3', 'Microengineering minor, 2025-2026, Spring semester', 'Minor in Engineering for sustainability, 2025-2026, Autumn semester', 'Humanities and Social Sciences Program, 2025-2026, Bachelor semester 3', 'Nuclear engineering, 2025-2026, Master semester 2', 'Electrical and Electronics Engineering, 2025-2026, Master semester 3', 'Computational science and Engineering, 2025-2026, Master semester 1', 'Materials Science and Engineering, 2025-2026, Master semester 2', 'Quantum Science and Engineering, 2025-2026, Master Project autumn', 'Mechanical Engineering, 2025-2026, Bachelor semester 4', 'Data science minor, 2025-2026, Autumn semester', 'Biomedical technologies minor, 2025-2026, Spring semester', 'Applied Mathematics, 2025-2026, Master semester 1', 'Minor in life sciences engineering\n, 2025-2026, Spring semester', 'Applied Physics, 2025-2026, Master Project spring', 'Architecture, 2025-2026, Master semester 4', 'Architecture, 2025-2026, Master Project spring', 'Systems Engineering minor, 2025-2026, Autumn semester', 'Architecture and Sciences of the City (edoc), 2025-2026', 'Applied Mathematics, 2025-2026, Master semester 3', 'Microengineering, 2025-2026, Master semester 2', 'Mathematics, 2025-2026, Bachelor semester 1', 'Environmental Sciences and Engineering, 2025-2026, Bachelor semester 1', 'Computer Science, 2025-2026, Bachelor semester 4', 'Data science minor, 2025-2026, Spring semester', 'Chemical Engineering and Biotechnology, 2025-2026, Master semester 3', 'Data Science, 2025-2026, Master semester 2', 'Passerelle HES - GC, 2025-2026, Autumn semester', 'Passerelle HES - CGC, 2025-2026, Autumn semester', 'Computer Science - Cybersecurity, 2025-2026, Master semester 3', 'Life Sciences Engineering, 2025-2026, Bachelor semester 5', 'AR Exchange, 2025-2026, Spring semester', 'Management, Technology and Entrepreneurship, 2025-2026, Master semester 2', 'Applied Physics, 2025-2026, Master semester 4', 'Computer and Communication Sciences (edoc), 2025-2026', 'Sustainable Management and Technology, 2026-2027, Autumn semester', 'Biotechnology and Bioengineering (edoc), 2025-2026', 'Neuro-X, 2025-2026, Master Project spring', 'Chemical Engineering and Biotechnology, 2025-2026, Master semester 2', 'Communication Systems - master program, 2025-2026, Master semester 3', 'Energy Science and Technology, 2025-2026, Master Project autumn', 'Molecular & Biological Chemistry, 2025-2026, Master semester 2', 'Mathematics (edoc), 2025-2026', 'AR Exchange, 2025-2026, Autumn semester', 'Civil Engineering, 2025-2026, Master Project spring', 'Chemical Engineering, 2025-2026, Bachelor semester 5', 'Chemical Engineering and Biotechnology, 2025-2026, Master Project spring', 'Computer Science - Cybersecurity, 2025-2026, Master semester 4', 'Mechanical Engineering, 2025-2026, Bachelor semester 5', 'Computer Science, 2025-2026, Master Project spring', 'Life Sciences Engineering, 2025-2026, Bachelor semester 1', 'Microengineering, 2025-2026, Master semester 1', 'Neuro-X minor, 2025-2026, Spring semester', 'Electrical and Electronics Engineering, 2025-2026, Bachelor semester 1', 'Civil and Environmental Engineering (edoc), 2025-2026', 'Physics - master program, 2025-2026, Master Project autumn', 'Environmental Sciences and Engineering, 2025-2026, Master semester 4', 'Applied Physics, 2025-2026, Master semester 3', 'Robotics, Control and Intelligent Systems (edoc), 2025-2026', 'Civil Engineering, 2025-2026, Bachelor semester 1', 'Computer Science, 2025-2026, Master semester 3', 'Microengineering, 2025-2026, Bachelor semester 6', 'Mathematics, 2025-2026, Bachelor semester 4', 'Joint EPFL - ETH Zurich Doctoral Program in the Learning Sciences, 2025-2026', 'Mechanical Engineering, 2025-2026, Master semester 4', 'Communication Systems - master program, 2025-2026, Master semester 1', 'Financial engineering, 2025-2026, Master semester 4', 'Physics - master program, 2025-2026, Master semester 2', 'Management, Technology and Entrepreneurship minor, 2025-2026, Autumn semester', 'Mechanical engineering minor, 2025-2026, Autumn semester', 'Molecular & Biological Chemistry, 2025-2026, Master Project autumn', 'Applied Mathematics, 2025-2026, Master Project autumn', 'Urban systems, 2025-2026, Master semester 2', 'Energy minor, 2025-2026, Spring semester', 'Humanities and Social Sciences Program, 2025-2026, Bachelor semester 5', 'Financial engineering minor, 2025-2026, Autumn semester', 'Passerelle HES - GC, 2025-2026, Spring semester', 'Electrical and Electronics Engineering, 2025-2026, Bachelor semester 6', 'Data Science, 2025-2026, Master Project autumn', 'Space technologies minor, 2025-2026, Autumn semester', 'Materials Science and Engineering, 2025-2026, Bachelor semester 3', 'Finance (edoc), 2025-2026', 'Financial engineering minor, 2025-2026, Spring semester', 'Mathematics - master program, 2025-2026, Master Project spring', 'Energy Science and Technology, 2025-2026, Admission autumn', 'Chemistry and Chemical Engineering, 2025-2026, Bachelor semester 4', 'Digital Humanities, 2025-2026, Master semester 4', 'Chemistry and Chemical Engineering (edoc), 2025-2026', 'Energy minor, 2025-2026, Autumn semester', 'Energy Science and Technology, 2025-2026, Master semester 2', 'Advanced Manufacturing (edoc), 2025-2026', 'Life Sciences Engineering, 2025-2026, Master Project autumn', 'Minor in Engineering for sustainability, 2025-2026, Spring semester', 'Statistics, 2025-2026, Master semester 2', 'Physics (edoc), 2025-2026', 'Microsystems and Microelectronics (edoc), 2025-2026', 'Architecture, 2025-2026, Bachelor semester 5b', 'Physics - master program, 2025-2026, Master semester 4', 'Humanities and Social Sciences Program, 2025-2026, Master semester 2', 'Passerelle HES - IC, 2025-2026, Spring semester', 'Computer Science - Cybersecurity, 2025-2026, Master semester 1', 'Physics - master program, 2025-2026, Master semester 1', 'Environmental Sciences and Engineering, 2025-2026, Master semester 3', 'Microengineering, 2025-2026, Bachelor semester 4', 'Territories in transformation and climate minor, 2025-2026, Spring semester', 'Minor in Integrated Design, Architecture and Sustainability, 2025-2026, Spring semester', 'Communication Systems, 2025-2026, Bachelor semester 3', 'Computer Science - Cybersecurity, 2025-2026, Master semester 2', 'Life Sciences Engineering, 2025-2026, Bachelor semester 6', 'Management, Technology and Entrepreneurship, 2025-2026, Master semester 3', 'Mathematics - master program, 2025-2026, Master semester 3', 'Materials Science and Engineering, 2025-2026, Bachelor semester 4', 'Chemistry, 2025-2026, Bachelor semester 6', 'Minor in Imaging, 2025-2026, Autumn semester', 'Applied Mathematics, 2025-2026, Master semester 4', 'Biotechnology minor, 2025-2026, Autumn semester', 'Photonics (edoc), 2025-2026', 'UNIL - Autres facultés, 2025-2026, Autumn semester', 'Mathematics - master program, 2025-2026, Master semester 1', 'Computer science minor, 2025-2026, Spring semester', 'Auditeurs en ligne, 2025-2026, Spring semester', 'Molecular & Biological Chemistry, 2025-2026, Master semester 3', 'Minor in statistics, 2025-2026, Autumn semester', 'Computational science and engineering minor, 2025-2026, Autumn semester', 'Applied Physics, 2025-2026, Master semester 1', 'UNIL - Sciences forensiques, 2025-2026, Autumn semester', 'Electrical and Electronics Engineering, 2025-2026, Bachelor semester 3', 'Communication Systems, 2025-2026, Bachelor semester 4', 'Micro- and Nanotechnologies for Integrated Systems, 2025-2026, Master semester 4', 'Physics, 2025-2026, Bachelor semester 4', 'Civil Engineering, 2025-2026, Master semester 3', 'Computer science minor, 2025-2026, Autumn semester', 'Passerelle HES - AR, 2025-2026, Spring semester', 'Molecular & Biological Chemistry, 2025-2026, Master semester 1', 'Physics, 2025-2026, Bachelor semester 2', 'Passerelle HES - CGC, 2025-2026, Spring semester', 'Computer Science, 2025-2026, Master Project autumn', 'Mechanical Engineering, 2025-2026, Master semester 1', 'Minor in digital humanities, media and society, 2025-2026, Autumn semester', 'Financial engineering, 2025-2026, Master semester 1', 'Materials Science and Engineering, 2025-2026, Master Project autumn', 'Architecture, 2025-2026, Master semester 1', 'Humanities and Social Sciences Program, 2025-2026, Bachelor semester 6', 'Mechanical Engineering, 2025-2026, Master Project spring', 'Computer Science, 2025-2026, Master semester 4', 'Computer Science, 2025-2026, Master semester 2', 'Physics, 2025-2026, Bachelor semester 1', 'Nuclear engineering, 2025-2026, Master semester 4', 'Quantum Science and Engineering, 2025-2026, Master Project spring', 'Chemical Engineering and Biotechnology, 2025-2026, Master semester 4', 'Physics of living systems minor, 2025-2026, Spring semester', 'Civil Engineering, 2025-2026, Bachelor semester 2', 'Mechanical Engineering, 2025-2026, Bachelor semester 3', 'Environmental Sciences and Engineering, 2025-2026, Bachelor semester 5', 'Civil Engineering, 2025-2026, Master semester 1', 'UNIL - HEC, 2025-2026, Autumn semester', 'Architecture, 2025-2026, Bachelor semester 6', 'Mechanical Engineering, 2025-2026, Bachelor semester 2', 'Neuro-X, 2025-2026, Master semester 3', 'Computer Science - Cybersecurity, 2025-2026, Master Project autumn', 'Materials Science and Engineering (edoc), 2025-2026', 'Chemistry and Chemical Engineering, 2025-2026, Bachelor semester 2', 'Life Sciences Engineering, 2025-2026, Bachelor semester 3', 'Quantum Science and Engineering, 2025-2026, Master semester 3', 'Civil Engineering, 2025-2026, Bachelor semester 4', 'Management of technology (edoc), 2025-2026', 'Neuro-X, 2025-2026, Master semester 1', 'Architecture, 2025-2026, Master semester 3', 'Nuclear engineering, 2025-2026, Master semester 1', 'Materials Science and Engineering, 2025-2026, Bachelor semester 6', 'Energy Science and Technology, 2025-2026, Admission spring', 'Physics - master program, 2025-2026, Master Project spring', 'Photonics minor, 2025-2026, Spring semester', 'Civil Engineering, 2025-2026, Bachelor semester 3', 'Financial engineering, 2025-2026, Master semester 3', 'Digital Humanities, 2025-2026, Master semester 3', 'Life Sciences Engineering, 2025-2026, Master semester 3', 'Environmental Sciences and Engineering, 2025-2026, Master semester 2', 'Microengineering, 2025-2026, Bachelor semester 2', 'Neuro-X minor, 2025-2026, Autumn semester', 'Minor in Integrated Design, Architecture and Sustainability, 2025-2026, Autumn semester', 'Passerelle HES - SIE, 2025-2026, Autumn semester', 'Statistics, 2025-2026, Master semester 4', 'Digital Humanities, 2025-2026, Master semester 1', 'Minor in life sciences engineering\n, 2025-2026, Autumn semester', 'UNIL - Autres facultés, 2025-2026, Spring semester', 'Environmental Sciences and Engineering, 2025-2026, Master Project spring', 'Architecture, 2025-2026, Bachelor semester 3', 'Environmental Sciences and Engineering, 2025-2026, Master Project autumn', 'Quantum Science and Engineering, 2025-2026, Master semester 4', 'Nuclear engineering, 2025-2026, Master Project autumn', 'Computer Science, 2025-2026, Bachelor semester 6', 'Management, Technology and Entrepreneurship minor, 2025-2026, Spring semester', 'Biomedical technologies minor, 2025-2026, Autumn semester', 'Computational science and Engineering, 2025-2026, Master semester 3', 'Electrical and Electronics Engineering, 2025-2026, Master semester 4', 'Sustainable Management and Technology, 2025-2026, Master semester 2', 'Digital humanities (edoc), 2025-2026', 'Territories in transformation and climate minor, 2025-2026, Autumn semester', 'Data Science, 2025-2026, Master semester 1', 'Materials Science and Engineering, 2025-2026, Bachelor semester 2', 'Mechanical Engineering, 2025-2026, Bachelor semester 1', 'Computational science and Engineering, 2025-2026, Master Project autumn', 'Computational science and engineering minor, 2025-2026, Spring semester', 'Applied Physics, 2025-2026, Master Project autumn', 'Molecular Life Sciences (edoc), 2025-2026', 'Urban systems, 2025-2026, Master semester 1', 'Computational biology minor, 2025-2026, Spring semester', 'Energy Science and Technology, 2025-2026, Master semester 3', 'Materials Science and Engineering, 2025-2026, Bachelor semester 5', 'Communication Systems, 2025-2026, Bachelor semester 5', 'Mathematics, 2025-2026, Bachelor semester 2', 'Robotics, 2025-2026, Master semester 2', 'Life Sciences Engineering, 2025-2026, Master semester 1', 'Robotics, 2025-2026, Master Project spring', 'Life Sciences Engineering, 2025-2026, Master semester 2', 'Microengineering, 2025-2026, Bachelor semester 5', 'Humanities and Social Sciences Program, 2025-2026, Master semester 1', 'Communication Systems, 2025-2026, Bachelor semester 2', 'Mathematics - master program, 2025-2026, Master semester 2', 'Cyber security minor, 2025-2026, Spring semester', 'Architecture, 2025-2026, Bachelor semester 4', 'Architecture, 2025-2026, Bachelor semester 2', 'Neuro-X, 2025-2026, Master Project autumn', 'Life Sciences Engineering, 2025-2026, Bachelor semester 2', 'Statistics, 2025-2026, Master semester 1', 'UNIL - Collège des sciences, 2025-2026, Autumn semester', 'Passerelle HES - AR, 2025-2026, Autumn semester', 'Financial engineering, 2025-2026, Master semester 2', 'Electrical Engineering (edoc), 2025-2026', 'Physics of living systems minor, 2025-2026, Autumn semester', 'Civil Engineering, 2025-2026, Bachelor semester 5', 'Architecture, 2025-2026, Bachelor semester 1', 'Microengineering, 2025-2026, Master semester 4', 'Mathematics, 2025-2026, Bachelor semester 5', 'Passerelle HES - MT, 2025-2026, Spring semester', 'Applied Mathematics, 2025-2026, Master semester 2', 'Electrical and electronic engineering minor, 2025-2026, Spring semester', 'Physics, 2025-2026, Bachelor semester 6', 'Civil Engineering, 2025-2026, Master semester 4', 'Passerelle HES - SIE, 2025-2026, Spring semester', 'Materials Science and Engineering, 2025-2026, Master Project spring', 'Microengineering minor, 2025-2026, Autumn semester', 'Minor in statistics, 2025-2026, Spring semester', 'Civil engineering minor, 2024-2025, Autumn semester', 'Quantum Science and Engineering, 2025-2026, Master semester 1', 'Environmental Sciences and Engineering, 2025-2026, Bachelor semester 6', 'Mathematics, 2025-2026, Bachelor semester 3', 'Sustainable Management and Technology, 2025-2026, Master semester 1', 'Computer Science, 2025-2026, Bachelor semester 3', 'Communication Systems, 2025-2026, Bachelor semester 6', 'Sustainable Management and Technology, 2025-2026, Master semester 3', 'Space technologies minor, 2025-2026, Spring semester', 'Computer Science, 2025-2026, Bachelor semester 1', 'Materials Science and Engineering, 2025-2026, Master semester 4', 'Passerelle HES - EL, 2025-2026, Autumn semester', 'Civil Engineering, 2025-2026, Master Project autumn', 'Chemical Engineering and Biotechnology, 2025-2026, Master semester 1', 'Photonics minor, 2025-2026, Autumn semester', 'Communication Systems - master program, 2025-2026, Master Project autumn', 'Chemical Engineering and Biotechnology, 2025-2026, Master Project autumn', 'Humanities and Social Sciences Program, 2025-2026, Bachelor semester 4', 'Molecular & Biological Chemistry, 2025-2026, Master Project spring', 'Passerelle HES - GM, 2025-2026, Autumn semester', 'Computer Science - Cybersecurity, 2025-2026, Master Project spring', 'Passerelle HES - IC, 2025-2026, Autumn semester', 'Electrical and Electronics Engineering, 2025-2026, Bachelor semester 5', 'Chemistry and Chemical Engineering, 2025-2026, Bachelor semester 1', 'Nuclear engineering, 2025-2026, Master semester 3', 'Life Sciences Engineering, 2025-2026, Master Project spring', 'Robotics, 2025-2026, Master semester 3', 'Chemical Engineering, 2025-2026, Bachelor semester 6', 'Energy Science and Technology, 2025-2026, Master semester 1', 'Computational biology minor, 2025-2026, Autumn semester', 'Data Science, 2025-2026, Master semester 4', 'Energy (edoc), 2025-2026', 'Passerelle HES - GM, 2025-2026, Spring semester', 'Electrical and Electronics Engineering, 2025-2026, Master semester 2', 'UNIL - Sciences forensiques, 2025-2026, Spring semester', 'Electrical and Electronics Engineering, 2025-2026, Master semester 1', 'Life Sciences Engineering, 2025-2026, Bachelor semester 4', 'Electrical and Electronics Engineering, 2025-2026, Master Project autumn', 'Auditeurs en ligne, 2025-2026, Autumn semester', 'Nuclear engineering, 2025-2026, Master Project spring', 'Electrical and electronic engineering minor, 2025-2026, Autumn semester', 'Molecular & Biological Chemistry, 2025-2026, Master semester 4', 'Minor in digital humanities, media and society, 2025-2026, Spring semester', 'Systems Engineering minor, 2025-2026, Spring semester', 'Passerelle HES - MT, 2025-2026, Autumn semester', 'Data Science, 2025-2026, Master semester 3', 'Communication systems minor, 2025-2026, Autumn semester', 'Applied Mathematics, 2025-2026, Master Project spring', 'Physics - master program, 2025-2026, Master semester 3', 'UNIL - HEC, 2025-2026, Spring semester', 'Humanities and Social Sciences Program, 2025-2026, Bachelor semester 2', 'Hors plans, 2025-2026, Autumn semester', 'Civil engineering minor, 2025-2026, Autumn semester', 'Civil engineering minor, 2025-2026, Spring semester', 'Mechanical Engineering, 2025-2026, Master Project autumn', 'Statistics, 2025-2026, Master Project autumn', 'Chemistry, 2025-2026, Bachelor semester 5', 'Mechanical Engineering, 2025-2026, Master semester 3', 'Management, Technology and Entrepreneurship, 2025-2026, Master semester 1', 'Architecture, 2025-2026, Master semester 2', 'Microengineering, 2025-2026, Bachelor semester 3', 'Statistics, 2025-2026, Master semester 3', 'Data Science, 2025-2026, Master Project spring', 'Mechanical engineering minor, 2025-2026, Spring semester', 'Life Sciences Engineering, 2025-2026, Master semester 4', 'Micro- and Nanotechnologies for Integrated Systems, 2025-2026, Master Project spring', 'Architecture, 2025-2026, Master Project autumn', 'Robotics, 2025-2026, Master semester 4', 'Civil Engineering, 2025-2026, Master semester 2', 'Minor in Quantum Science and Engineering, 2025-2026, Spring semester', 'Mechanical Engineering, 2025-2026, Master semester 2', 'Materials Science and Engineering, 2025-2026, Master semester 3', 'Biotechnology minor, 2025-2026, Spring semester', 'Computational and Quantitative Biology (edoc), 2025-2026', 'Computer Science, 2025-2026, Bachelor semester 2', 'Computational science and Engineering, 2025-2026, Master semester 4', 'Microengineering, 2025-2026, Master Project autumn', 'Mechanical Engineering, 2025-2026, Bachelor semester 6', 'Neuro-X, 2025-2026, Master semester 2', 'Materials Science and Engineering (edoc), 2024-2025', 'Management, Technology and Entrepreneurship, 2025-2026, Master semester 4', 'Sustainable Construction minor, 2025-2026, Spring semester', 'Mathematics, 2025-2026, Bachelor semester 6', 'Materials Science and Engineering, 2025-2026, Bachelor semester 1', 'Communication Systems - master program, 2025-2026, Master Project spring', 'Energy Science and Technology, 2025-2026, Master semester 4', 'Environmental Sciences and Engineering, 2025-2026, Bachelor semester 2', 'Passerelle HES - EL, 2025-2026, Spring semester', 'Energy Science and Technology, 2025-2026, Master Project spring', 'Communication systems minor, 2025-2026, Spring semester', 'Environmental Sciences and Engineering, 2025-2026, Bachelor semester 4', 'Micro- and Nanotechnologies for Integrated Systems, 2025-2026, Master semester 3', 'Data and Internet of Things minor, 2025-2026, Spring semester', 'Electrical and Electronics Engineering, 2025-2026, Master Project spring', 'Electrical and Electronics Engineering, 2025-2026, Bachelor semester 4', 'Neuro-X, 2025-2026, Master semester 4', 'Microengineering, 2025-2026, Master semester 3', 'Architecture, 2025-2026, Bachelor semester 5', 'Digital Humanities, 2025-2026, Master semester 2', 'Microengineering, 2025-2026, Master Project spring', 'Environmental Sciences and Engineering, 2025-2026, Master semester 1', 'UNIL - Collège des sciences, 2025-2026, Spring semester', 'Applied Physics, 2025-2026, Master semester 2', 'Statistics, 2025-2026, Master Project spring', 'Microengineering, 2025-2026, Bachelor semester 1', 'Minor in Quantum Science and Engineering, 2025-2026, Autumn semester', 'Computer Science, 2025-2026, Bachelor semester 5', 'Communication Systems - master program, 2025-2026, Master semester 2', 'Communication Systems - master program, 2025-2026, Master semester 4', 'Computer Science, 2025-2026, Master semester 1', 'Architecture and Sciences of the City (edoc), 2024-2025', 'Physics, 2025-2026, Bachelor semester 5', 'Civil Engineering, 2025-2026, Bachelor semester 6', 'Chemistry and Chemical Engineering, 2025-2026, Bachelor semester 3', 'Robotics, 2025-2026, Master semester 1', 'Mathematics - master program, 2025-2026, Master Project autumn', 'Mechanics (edoc), 2025-2026', 'Materials Science and Engineering, 2025-2026, Master semester 1', 'Cyber security minor, 2025-2026, Autumn semester', 'Computational science and Engineering, 2025-2026, Master Project spring', 'Robotics, 2025-2026, Master Project autumn']
 # --- helpers ---
 
 BA_KEYS = [f"BA{i}" for i in range(1,7)]
@@ -28,9 +37,55 @@ def detect_bucket_and_name(item: str):
     s = re.sub(r"\s{2,}", " ", item.strip())
     s_no_mp = clean_master_phrase(s)
 
-    # (1) edoc → PhD/edoc
+    # Normalize comma-separated EPFL labels like
+    #   "Program, 2025-2026, Master semester 2"
+    # into level/key + base name.
+    parts = [p.strip() for p in s_no_mp.split(',') if p.strip()]
+    # Drop year-like tokens (e.g., 2025-2026)
+    parts = [p for p in parts if not re.search(r"\b\d{4}\s*-\s*\d{4}\b", p)]
+    if len(parts) >= 2:
+        base_name = parts[0]
+        tail = parts[-1]
+        # edoc programs e.g., "Advanced Manufacturing (edoc), 2025-2026"
+        if re.search(r"(?i)\(edoc\)", base_name):
+            clean_base = re.sub(r"(?i)\s*\(edoc\)\s*", " ", base_name).strip()
+            return ("PhD", "edoc", clean_base)
+        # 1) Master/Bachelor semester N → MA/BA keys
+        m_ma_sem = re.search(r"(?i)\bmaster\s+semester\s*([1-4])\b", tail)
+        if m_ma_sem:
+            key = f"MA{m_ma_sem.group(1)}"
+            return ("MA", key, base_name)
+        m_ba_sem = re.search(r"(?i)\bbachelor\s+semester\s*([1-6])[a-b]?\b", tail)
+        if m_ba_sem:
+            key = f"BA{m_ba_sem.group(1)}"
+            return ("BA", key, base_name)
+        # 2) Master Project autumn/spring → special MA keys
+        m_proj = re.search(r"(?i)\bmaster\s+project\s+(autumn|spring)\b", tail)
+        if m_proj:
+            season = m_proj.group(1).lower()
+            return ("MA", MA_PROJECT_AUTUMN if season == 'autumn' else MA_PROJECT_SPRING, base_name)
+        # 3) Minor Autumn/Spring semester → map to Minor buckets
+        if (re.search(r"(?i)\bautumn\s+semester\b", tail) or re.search(r"(?i)\bspring\s+semester\b", tail)) and re.search(r"(?i)\bminor\b|^\s*Minor in\b", base_name):
+            is_aut = bool(re.search(r"(?i)\bautumn\s+semester\b", tail))
+            # Extract core name for variants like "Minor in X" or "X minor"
+            nm = base_name
+            m_in = re.search(r"(?i)^Minor in\s+(.*)$", nm)
+            if m_in:
+                nm = m_in.group(1).strip()
+            else:
+                m_tail = re.search(r"(?i)^(.*)\s+minor$", nm)
+                if m_tail:
+                    nm = m_tail.group(1).strip()
+            return ("MA", MINOR_AUTUMN if is_aut else MINOR_SPRING, nm)
+
+    # (1) edoc → PhD/edoc (fallback, robust to year and position)
     if re.search(r"\(edoc\)", s_no_mp, re.IGNORECASE):
-        base = re.sub(r"\s*\(edoc\)\s*$", "", s_no_mp, flags=re.IGNORECASE).strip()
+        base = re.sub(r"\s*\(edoc\)\s*", " ", s_no_mp, flags=re.IGNORECASE)
+        base = re.sub(r"\b\d{4}\s*-\s*\d{4}\b", "", base)
+        base = re.sub(r"\s*,\s*$", "", base).strip()
+        # If a comma remains after removing years, keep left-most as base
+        if "," in base:
+            base = base.split(",", 1)[0].strip()
         return ("PhD", "edoc", base)
 
     # (2) minor … semester → MA / Minor Autumn|Spring Semester
@@ -83,9 +138,74 @@ def detect_bucket_and_name(item: str):
     return (None, None, s_no_mp)
 
 def normalize_name(name: str) -> str:
-    # compact whitespace; title-case acronyms remain as-is
-    name = re.sub(r"\s{2,}", " ", name).strip()
-    return name
+    # compact whitespace
+    name = re.sub(r"\s{2,}", " ", (name or "")).strip()
+    if not name:
+        return name
+    # Smart title case: keep all-caps words (EPFL/ETH), lowercase small words except at start
+    small = {"and","or","of","in","for","the","a","an","to","on","at","by","with"}
+    def cap_word(w: str, is_first: bool) -> str:
+        if not w:
+            return w
+        # Preserve all-caps words and words containing digits
+        if (len(w) > 1 and w.isupper()) or re.search(r"\d", w):
+            return w
+        # Handle hyphenated words
+        if '-' in w:
+            parts = w.split('-')
+            return '-'.join(cap_word(p, True) for p in parts)
+        lw = w.lower()
+        if not is_first and lw in small:
+            return lw
+        return lw[0:1].upper() + lw[1:]
+    tokens = name.split()
+    out = [cap_word(tokens[0], True)] + [cap_word(t, False) for t in tokens[1:]] if tokens else []
+    return " ".join(out)
+
+
+# --- Renaming helpers ---
+def canonicalize_key(s: str) -> str:
+    """Create a stable, case-insensitive key for name matching.
+    Keeps letters, digits and a few separators; collapses whitespace.
+    """
+    s = s.lower().strip()
+    s = re.sub(r"\s+", " ", s)
+    # Keep common separators but drop other punctuation to be forgiving
+    s = re.sub(r"[^a-z0-9&+/\- ]+", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+
+def apply_renames(name: str, renames: dict) -> str:
+    """Map many old names to one canonical new name using program_renames.json.
+    The JSON should be a dict where KEYS are canonicalized old-name strings
+    (we canonicalize user-provided keys the same way) and VALUES are the
+    desired canonical display names.
+    """
+    key = canonicalize_key(name)
+    # Try direct key; also allow raw key just in case the user stored it un-normalized
+    return renames.get(key) or renames.get(name) or name
+
+def format_program_label(level: str, key: str, base: str) -> str:
+    """Build the canonical display label used in our JSON buckets.
+    Examples:
+      (MA, MA2, "Computational Science and Engineering") -> "MA2 Computational Science and Engineering"
+      (BA, BA3, "Physics") -> "BA3 Physics"
+      (MA, MA Project Spring, "Applied Physics") -> "MA Project Spring Applied Physics"
+      (MA, Minor Autumn Semester, "Imaging") -> "Minor Autumn Semester Imaging"
+      (PhD, edoc, "Advanced Manufacturing") -> "edoc Advanced Manufacturing"
+    Returns empty string when level/key cannot be formatted.
+    """
+    base_n = normalize_name(base or "")
+    if not base_n:
+        return ""
+    if level == "MA" and key and (key in MA_KEYS or key in (MA_PROJECT_AUTUMN, MA_PROJECT_SPRING, MINOR_AUTUMN, MINOR_SPRING)):
+        return f"{key} {base_n}".strip()
+    if level == "BA" and key and key in BA_KEYS:
+        return f"{key} {base_n}".strip()
+    if level == "PhD" and key == "edoc":
+        return f"edoc {base_n}".strip()
+    return base_n
 
 def main():
     # Load existing data, tolerating an empty or invalid JSON file
@@ -98,7 +218,34 @@ def main():
             print("WARNING: JSON was empty or invalid; starting with a fresh structure.")
             data = {}
 
+    # Load optional rename mapping for multi→one name consolidation
+    with open(RENAMES_PATH, "r", encoding="utf-8") as f:
+        try:
+            renames = json.load(f)
+            if not isinstance(renames, dict):
+                renames = {}
+        except json.JSONDecodeError:
+            print("WARNING: program_renames.json was empty or invalid; ignoring renames.")
+            renames = {}
+
     program_items = RAW_SET_LITERAL
+
+    # Auto-generate raw→formatted mapping and merge into program_renames.json
+    added_mappings = 0
+    for raw in program_items:
+        lvl, key, base = detect_bucket_and_name(raw)
+        formatted = format_program_label(lvl, key, base)
+        if not formatted:
+            continue
+        can_key = canonicalize_key(raw)
+        # Only add if not already present to avoid clobbering manual curation
+        if renames.get(can_key) != formatted:
+            renames[can_key] = formatted
+            added_mappings += 1
+        # Also store exact raw key for convenience if absent
+        if renames.get(raw) != formatted:
+            renames[raw] = formatted
+            added_mappings += 1
 
     # Build mutable sets from existing lists to dedupe
     buckets = {
@@ -108,10 +255,14 @@ def main():
     }
 
     unknown = []
+    renamed_count = 0
 
     for item in sorted(program_items):
         level, key, base = detect_bucket_and_name(item)
         base = normalize_name(base)
+        original_base = base
+        base = apply_renames(base, renames)
+        renamed_count = renamed_count + (1 if base != original_base else 0)
         if level in ("BA", "MA", "PhD") and key:
             # ensure bucket exists
             if key not in buckets[level]:
@@ -131,6 +282,10 @@ def main():
     with open(JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
+    # Persist updated renames mapping
+    with open(RENAMES_PATH, "w", encoding="utf-8") as f:
+        json.dump(renames, f, indent=2, ensure_ascii=False)
+
     # Summary
     print("=== Update complete ===")
     for lvl in ("BA", "MA", "PhD"):
@@ -138,6 +293,8 @@ def main():
         print(f"{lvl}: {', '.join(keys)}")
         for k in keys:
             print(f"  - {k}: {len(buckets[lvl][k])} entries")
+    print(f"Renames applied: {renamed_count}")
+    print(f"Raw→formatted mappings written: {added_mappings}")
     if unknown:
         print("\nUnclassified items (please review / map manually):")
         for u in unknown:
