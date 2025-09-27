@@ -43,9 +43,18 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const pageSize = Math.max(1, Math.min(valInt(url.searchParams.get('pageSize')) || 20, 100));
     const limit = pageSize;
     const offset = (page - 1) * pageSize;
+    const debug = url.searchParams.get('debug') === '1';
+    const debugSteps: string[] = [];
+    const logStep = (label: string, value?: string | number | null) => {
+      if (!debug) return;
+      const message = value === undefined || value === null ? label : `${label}: ${String(value)}`;
+      debugSteps.push(message);
+      console.log(`[courses-debug] ${message}`);
+    };
 
     // Build PostgREST query
     const rest = new URL(env.SUPABASE_URL.replace(/\/$/, '') + `/rest/v1/${VIEW}`);
+    logStep('Initial Supabase URL', rest.toString());
 
     // Select the fields the UI consumes
     const select = [
@@ -68,6 +77,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       'max_score_foundations_sigmoid',
     ].join(',');
     rest.searchParams.set('select', select);
+    logStep('Select columns', select);
 
     // Filters
     if (q) {
@@ -75,17 +85,22 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       const term = `*${escapeIlike(q)}*`;
       const orExpr = `course_name.ilike.${term},course_code.ilike.${term},exam_form.ilike.${term},workload.ilike.${term},prof_names.ilike.${term}`;
       rest.searchParams.set('or', `(${orExpr})`);
+      logStep('Applied search term', term);
     }
 
     if (semester) rest.searchParams.set('semester', `ilike.${escapeIlike(semester)}`);
     if (typeof creditsMin === 'number') rest.searchParams.set('credits', `gte.${creditsMin}`);
     if (typeof creditsMax === 'number') rest.searchParams.append('credits', `lte.${creditsMax}`);
+    if (semester) logStep('Filter semester', semester);
+    if (typeof creditsMin === 'number') logStep('Filter credits >=', creditsMin);
+    if (typeof creditsMax === 'number') logStep('Filter credits <=', creditsMax);
 
     if (type) {
       // Prefer filtering by primary type if available
       rest.searchParams.set('type', `eq.${type}`);
       // Fallback/extra match on aggregated types string if present in view
       rest.searchParams.append('offering_types', `ilike.*${escapeIlike(type)}*`);
+      logStep('Filter type', type);
     }
 
     if (section) {
@@ -93,6 +108,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       // We try both possible columns
       rest.searchParams.set('sections', `cs.{${escapePgArray(section)}}`);
       rest.searchParams.append('sections_text', `ilike.*${escapeIlike(section)}*`);
+      logStep('Filter section', section);
     }
 
     // Array contains for tags if the view exposes arrays
@@ -100,16 +116,22 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const programs = toCsvArray(availableProgramsParam);
     if (programs.length) {
       rest.searchParams.set('available_programs', `cs.{${programs.map(escapePgArray).join(',')}}`);
+      logStep('Filter available_programs', programs.join(','));
     }
     const keywords = toCsvArray(keywordsParam);
     if (keywords.length) {
       rest.searchParams.set('keywords', `cs.{${keywords.map(escapePgArray).join(',')}}`);
+      logStep('Filter keywords', keywords.join(','));
     }
 
     if (typeof minSkills === 'number') rest.searchParams.set('max_score_skills_sigmoid', `gte.${minSkills}`);
     if (typeof minProduct === 'number') rest.searchParams.set('max_score_product_sigmoid', `gte.${minProduct}`);
     if (typeof minVenture === 'number') rest.searchParams.set('max_score_venture_sigmoid', `gte.${minVenture}`);
     if (typeof minFoundations === 'number') rest.searchParams.set('max_score_foundations_sigmoid', `gte.${minFoundations}`);
+    if (typeof minSkills === 'number') logStep('Filter minSkills', minSkills);
+    if (typeof minProduct === 'number') logStep('Filter minProduct', minProduct);
+    if (typeof minVenture === 'number') logStep('Filter minVenture', minVenture);
+    if (typeof minFoundations === 'number') logStep('Filter minFoundations', minFoundations);
 
     // Sorting
     const orderMappings: Record<string, string> = {
@@ -123,10 +145,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     };
     const mapped = orderMappings[sortField] || 'course_name';
     rest.searchParams.set('order', `${mapped}.${sortOrder}.nullslast`);
+    logStep('Sort order', `${mapped}.${sortOrder}`);
 
     // Pagination via Range header (gives Content-Range with total when Prefer: count=exact)
     const rangeStart = offset;
     const rangeEnd = offset + limit - 1;
+    logStep('Pagination', `${rangeStart}-${rangeEnd}`);
 
     const headers: Record<string, string> = {
       apikey: env.SUPABASE_ANON_KEY,
@@ -134,8 +158,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       Prefer: 'count=exact',
     };
 
-    // Edge cache (optional short TTL); bypass if search term provided
-    const useCache = request.method === 'GET' && !q;
+    // Edge cache (optional short TTL); bypass if search term provided or offset > 0
+    const useCache = !debug && request.method === 'GET' && !q && offset === 0;
     const cacheKey = new Request(rest.toString(), { headers, method: 'GET' });
     if (useCache) {
       const cached = await caches.default.match(cacheKey);
@@ -155,15 +179,20 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       },
       method: 'GET',
     });
+    logStep('Supabase request URL', rest.toString());
     const resp = await fetch(upstreamReq);
 
     if (!resp.ok) {
       const text = await resp.text();
+      logStep('Supabase error', `${resp.status} ${text || resp.statusText}`);
       return jsonError(resp.status, `Upstream error: ${text || resp.statusText}`);
     }
 
     const total = parseTotalFromContentRange(resp.headers.get('Content-Range'));
+    logStep('Content-Range', resp.headers.get('Content-Range'));
+    logStep('Total rows', total);
     const items = await resp.json();
+    logStep('Items returned', items.length);
 
     if (useCache) {
       const cacheHeaders = new Headers(resp.headers);
@@ -173,7 +202,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       await caches.default.put(cacheKey, toCache.clone());
     }
 
-    return jsonOk({ items, total, page, pageSize }, { 'Cache-Control': 'public, max-age=30' });
+    const payload: Record<string, any> = { items, total, page, pageSize };
+    if (debug) {
+      payload.debug = debugSteps;
+      payload.supabaseRequest = rest.toString();
+    }
+    return jsonOk(payload, { 'Cache-Control': 'public, max-age=30' });
   } catch (err: any) {
     return jsonError(500, err?.message || 'Internal error');
   }
@@ -222,4 +256,3 @@ function jsonError(status: number, message: string): Response {
     headers: { 'Content-Type': 'application/json; charset=utf-8' },
   });
 }
-
