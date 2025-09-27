@@ -23,21 +23,21 @@ CREATE TABLE IF NOT EXISTS courses (
 CREATE TABLE IF NOT EXISTS course_offerings (
   id INT AUTO_INCREMENT PRIMARY KEY,
   course_id INT NOT NULL,
+  row_id CHAR(16) NOT NULL,
   section VARCHAR(64) NOT NULL,
   type ENUM('mandatory', 'optional') NOT NULL,
   prof_name VARCHAR(512),
+  score_skills_sigmoid DECIMAL(6,5) DEFAULT NULL,
+  score_product_sigmoid DECIMAL(6,5) DEFAULT NULL,
+  score_venture_sigmoid DECIMAL(6,5) DEFAULT NULL,
+  score_foundations_sigmoid DECIMAL(6,5) DEFAULT NULL,
   UNIQUE KEY uniq_course_section (course_id, section),
+  UNIQUE KEY uniq_offering_row (row_id),
   INDEX idx_offerings_course (course_id),
   INDEX idx_offerings_section (section),
   INDEX idx_offerings_type (type),
   FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
 );
-
--- Backward-compatibility view (optional): exposes `url` as alias of `course_url`
-DROP VIEW IF EXISTS courses_with_url;
-CREATE VIEW courses_with_url AS
-  SELECT id, course_name, course_code, course_url AS url, credits, lang, semester, exam_form, workload
-  FROM courses;
 
 -- Tag types table
 CREATE TABLE IF NOT EXISTS tag_types (

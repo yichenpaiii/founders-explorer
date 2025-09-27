@@ -1,4 +1,19 @@
-export async function getCourses({ page, pageSize, q, type, semester, creditsMin, creditsMax, availablePrograms, sortField, sortOrder } = {}) {
+export async function getCourses({
+  page,
+  pageSize,
+  q,
+  type,
+  semester,
+  creditsMin,
+  creditsMax,
+  availablePrograms,
+  sortField,
+  sortOrder,
+  minSkills,
+  minProduct,
+  minVenture,
+  minFoundations,
+} = {}) {
   try {
     const url = new URL("/api/courses", "http://localhost:3000");
 
@@ -18,6 +33,19 @@ export async function getCourses({ page, pageSize, q, type, semester, creditsMin
     }
     if (sortField) url.searchParams.set('sortField', sortField);
     if (sortOrder) url.searchParams.set('sortOrder', sortOrder);
+
+    const scoreParams = {
+      minSkills,
+      minProduct,
+      minVenture,
+      minFoundations,
+    };
+
+    for (const [key, value] of Object.entries(scoreParams)) {
+      if (value != null && !Number.isNaN(value)) {
+        url.searchParams.set(key, String(value));
+      }
+    }
 
     const res = await fetch(url.toString());
 

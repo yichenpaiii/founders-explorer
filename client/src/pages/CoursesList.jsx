@@ -1,8 +1,102 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { getCourses } from "../api/courses_api";  // adjust path if needed
 
 const GRID_MIN_WIDTH = 220; // px
+
+const SCORE_FIELDS = [
+  { key: 'max_score_skills_sigmoid', label: 'Skills' },
+  { key: 'max_score_product_sigmoid', label: 'Product' },
+  { key: 'max_score_venture_sigmoid', label: 'Venture' },
+  { key: 'max_score_foundations_sigmoid', label: 'Foundations' },
+];
+
+const MIN_SCORE_SLIDERS = [
+  { key: 'minSkills', label: 'Skills' },
+  { key: 'minProduct', label: 'Product' },
+  { key: 'minVenture', label: 'Venture' },
+  { key: 'minFoundations', label: 'Foundations' },
+];
+
+const createDefaultFilters = () => ({
+  query: "",
+  type: "",
+  semester: "",
+  creditsMin: "",
+  creditsMax: "",
+  minSkills: 0,
+  minProduct: 0,
+  minVenture: 0,
+  minFoundations: 0,
+});
+
+const areFiltersEqual = (a, b) =>
+  a.query === b.query
+  && a.type === b.type
+  && a.semester === b.semester
+  && String(a.creditsMin ?? "") === String(b.creditsMin ?? "")
+  && String(a.creditsMax ?? "") === String(b.creditsMax ?? "")
+  && Number(a.minSkills) === Number(b.minSkills)
+  && Number(a.minProduct) === Number(b.minProduct)
+  && Number(a.minVenture) === Number(b.minVenture)
+  && Number(a.minFoundations) === Number(b.minFoundations);
+
+function normalizeScore(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return null;
+  if (num < 0) return 0;
+  if (num > 1) return 1;
+  return num;
+}
+
+function ScoreSummary({ course, theme = 'light' }) {
+  const entries = SCORE_FIELDS.map(({ key, label }) => {
+    const value = normalizeScore(course?.[key]);
+    return { label, value };
+  });
+
+  const isDark = theme === 'dark';
+  const trackColor = isDark ? 'rgba(255,255,255,0.25)' : '#e5e7eb';
+  const fillColor = isDark ? 'rgba(255,255,255,0.85)' : '#2563eb';
+  const labelColor = isDark ? 'rgba(255,255,255,0.8)' : '#374151';
+
+  return (
+    <div
+      style={{
+        marginTop: 10,
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
+        gap: 8,
+      }}
+    >
+      {entries.map(({ label, value }) => (
+        <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={{ fontSize: 11, color: labelColor }}>{label}</span>
+          <div
+            style={{
+              height: 6,
+              borderRadius: 9999,
+              background: trackColor,
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                width: value != null ? `${Math.round(value * 100)}%` : '0%',
+                height: '100%',
+                background: fillColor,
+                transition: 'width 0.2s ease',
+              }}
+            />
+          </div>
+          <span style={{ fontSize: 12, fontWeight: 600 }}>
+            {value != null ? value.toFixed(2) : '–'}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // Pareto helpers: maximize credits, minimize workload
 function parseNumberLike(value) {
@@ -92,12 +186,35 @@ function CoursesList() {
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(20);
+  const [totalResults, setTotalResults] = useState(0);
   const [showFilters, setShowFilters] = useState(true);
-  const [filters, setFilters] = useState({ query: "", type: "", semester: "", creditsMin: "", creditsMax: "" });
+  const [appliedFilters, setAppliedFilters] = useState(() => createDefaultFilters());
+  const [draftFilters, setDraftFilters] = useState(() => createDefaultFilters());
   const [sortField, setSortField] = useState("");
   const [sortOrder, setSortOrder] = useState("asc");
   const [viewMode, setViewMode] = useState("list"); // 'list' | 'grid'
   const [paretoPref, setParetoPref] = useState({ credits: 'max', workload: 'min' }); // 'max'|'min' for each
+
+  useEffect(() => {
+    setDraftFilters(appliedFilters);
+  }, [appliedFilters]);
+
+  const filtersDirty = useMemo(
+    () => !areFiltersEqual(draftFilters, appliedFilters),
+    [draftFilters, appliedFilters],
+  );
+
+  const handleApplyFilters = () => {
+    setPage(1);
+    setAppliedFilters(() => ({ ...draftFilters }));
+  };
+
+  const handleClearFilters = () => {
+    const reset = createDefaultFilters();
+    setDraftFilters(reset);
+    setAppliedFilters(reset);
+    setPage(1);
+  };
 
   useEffect(() => {
     async function fetchData() {
@@ -110,18 +227,23 @@ function CoursesList() {
           page,
           pageSize,
           // map UI filters to backend query params
-          q: filters.query || undefined,
-          type: filters.type || undefined,
-          semester: filters.semester || undefined,
-          creditsMin: filters.creditsMin !== "" ? Number(filters.creditsMin) : undefined,
-          creditsMax: filters.creditsMax !== "" ? Number(filters.creditsMax) : undefined,
+          q: appliedFilters.query || undefined,
+          type: appliedFilters.type || undefined,
+          semester: appliedFilters.semester || undefined,
+          creditsMin: appliedFilters.creditsMin !== "" ? Number(appliedFilters.creditsMin) : undefined,
+          creditsMax: appliedFilters.creditsMax !== "" ? Number(appliedFilters.creditsMax) : undefined,
           availablePrograms: ap || undefined,
           sortField: sortField || undefined,
           sortOrder: sortField ? sortOrder : undefined,
+          minSkills: appliedFilters.minSkills > 0 ? appliedFilters.minSkills : undefined,
+          minProduct: appliedFilters.minProduct > 0 ? appliedFilters.minProduct : undefined,
+          minVenture: appliedFilters.minVenture > 0 ? appliedFilters.minVenture : undefined,
+          minFoundations: appliedFilters.minFoundations > 0 ? appliedFilters.minFoundations : undefined,
         };
         const data = await getCourses(params);
         console.log("API response:", data);
         setCourses(data.items || []);
+        setTotalResults(Number(data.total || 0));
       } catch (err) {
         setError(err?.message || "Failed to load courses");
       } finally {
@@ -129,18 +251,20 @@ function CoursesList() {
       }
     }
     fetchData();
-  }, [page, pageSize, filters, location.search, sortField, sortOrder]);
+  }, [page, pageSize, appliedFilters, location.search, sortField, sortOrder]);
 
   useEffect(() => {
     setPage(1);
-  }, [filters.query, filters.type, filters.semester, filters.creditsMin, filters.creditsMax, location.search, sortField, sortOrder]);
+  }, [appliedFilters, location.search, sortField, sortOrder]);
 
   return (
     <div style={{ display: "flex", gap: "1rem" }}>
       {/* Left Filter Bar */}
       <aside
         style={{
-          width: showFilters ? 260 : 0,
+          width: showFilters ? 'clamp(220px, 26vw, 320px)' : 0,
+          flex: showFilters ? '0 0 clamp(220px, 26vw, 320px)' : '0 0 0',
+          boxSizing: 'border-box',
           transition: "width 0.2s ease",
           position: "sticky",
           top: 0,
@@ -150,6 +274,7 @@ function CoursesList() {
           overflowX: "hidden",
           borderRight: "1px solid #eee",
           paddingRight: showFilters ? "1rem" : 0,
+          marginRight: showFilters ? "1rem" : 0,
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -160,19 +285,33 @@ function CoursesList() {
           <input
             type="text"
             placeholder="Search name/code/prof"
-            value={filters.query}
-            onChange={(e) => setFilters((f) => ({ ...f, query: e.target.value }))}
+            value={draftFilters.query}
+            onChange={(e) => setDraftFilters((f) => ({ ...f, query: e.target.value }))}
           />
+          <button
+            type="button"
+            onClick={handleApplyFilters}
+            disabled={!filtersDirty}
+            style={{
+              padding: "8px 12px",
+              border: "1px solid #ccc",
+              background: filtersDirty ? "#2563eb" : "#e5e7eb",
+              color: filtersDirty ? "#fff" : "#6b7280",
+              cursor: filtersDirty ? "pointer" : "not-allowed",
+            }}
+          >
+            Search
+          </button>
           <div>
             <div style={{ fontSize: 12, marginBottom: 4 }}>Type</div>
             <div style={{ display: "flex", gap: 8 }}>
               <button
                 type="button"
-                onClick={() => setFilters((f) => ({ ...f, type: f.type === "optional" ? "" : "optional" }))}
+                onClick={() => setDraftFilters((f) => ({ ...f, type: f.type === "optional" ? "" : "optional" }))}
                 style={{
                   padding: "6px 10px",
                   border: "1px solid #ccc",
-                  background: filters.type === "optional" ? "#eee" : "#fff",
+                  background: draftFilters.type === "optional" ? "#eee" : "#fff",
                   cursor: "pointer",
                 }}
               >
@@ -180,11 +319,11 @@ function CoursesList() {
               </button>
               <button
                 type="button"
-                onClick={() => setFilters((f) => ({ ...f, type: f.type === "mandatory" ? "" : "mandatory" }))}
+                onClick={() => setDraftFilters((f) => ({ ...f, type: f.type === "mandatory" ? "" : "mandatory" }))}
                 style={{
                   padding: "6px 10px",
                   border: "1px solid #ccc",
-                  background: filters.type === "mandatory" ? "#eee" : "#fff",
+                  background: draftFilters.type === "mandatory" ? "#eee" : "#fff",
                   cursor: "pointer",
                 }}
               >
@@ -197,11 +336,11 @@ function CoursesList() {
             <div style={{ display: "flex", gap: 8 }}>
               <button
                 type="button"
-                onClick={() => setFilters((f) => ({ ...f, semester: f.semester === "winter" ? "" : "winter" }))}
+                onClick={() => setDraftFilters((f) => ({ ...f, semester: f.semester === "winter" ? "" : "winter" }))}
                 style={{
                   padding: "6px 10px",
                   border: "1px solid #ccc",
-                  background: filters.semester === "winter" ? "#eee" : "#fff",
+                  background: draftFilters.semester === "winter" ? "#eee" : "#fff",
                   cursor: "pointer",
                 }}
               >
@@ -209,11 +348,11 @@ function CoursesList() {
               </button>
               <button
                 type="button"
-                onClick={() => setFilters((f) => ({ ...f, semester: f.semester === "summer" ? "" : "summer" }))}
+                onClick={() => setDraftFilters((f) => ({ ...f, semester: f.semester === "summer" ? "" : "summer" }))}
                 style={{
                   padding: "6px 10px",
                   border: "1px solid #ccc",
-                  background: filters.semester === "summer" ? "#eee" : "#fff",
+                  background: draftFilters.semester === "summer" ? "#eee" : "#fff",
                   cursor: "pointer",
                 }}
               >
@@ -225,20 +364,41 @@ function CoursesList() {
             <input
               type="number"
               placeholder="Min credits"
-              value={filters.creditsMin}
-              onChange={(e) => setFilters((f) => ({ ...f, creditsMin: e.target.value }))}
+              value={draftFilters.creditsMin}
+              onChange={(e) => setDraftFilters((f) => ({ ...f, creditsMin: e.target.value }))}
             />
             <input
               type="number"
               placeholder="Max credits"
-              value={filters.creditsMax}
-              onChange={(e) => setFilters((f) => ({ ...f, creditsMax: e.target.value }))}
+              value={draftFilters.creditsMax}
+              onChange={(e) => setDraftFilters((f) => ({ ...f, creditsMax: e.target.value }))}
             />
           </div>
+          <div style={{ display: 'grid', gap: 10 }}>
+            {MIN_SCORE_SLIDERS.map(({ key, label }) => (
+              <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
+                  <span>{label} minimum</span>
+                  <span style={{ color: '#555' }}>≥ {draftFilters[key].toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={draftFilters[key]}
+                  onChange={(e) => setDraftFilters((f) => ({ ...f, [key]: Number(e.target.value) }))}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#888' }}>
+                  <span>0</span>
+                  <span>1</span>
+                </div>
+              </div>
+            ))}
+          </div>
           <button
-            onClick={() =>
-              setFilters({ query: "", type: "", semester: "", creditsMin: "", creditsMax: "" })
-            }
+            type="button"
+            onClick={handleClearFilters}
           >
             Clear filters
           </button>
@@ -257,7 +417,7 @@ function CoursesList() {
           {viewMode === 'list' ? (
             <>
               <span style={{ fontSize: 12, color: "#666" }}>Sort by</span>
-              <div style={{ display: "flex", gap: 4 }}>
+              <div style={{ display: "flex", gap: 4, flexWrap: 'wrap' }}>
                 <button
                   onClick={() => { setSortField("credits"); setSortOrder(sortField === "credits" && sortOrder === "asc" ? "desc" : "asc"); }}
                   style={{ padding: "4px 8px", border: "1px solid #ccc", background: sortField === "credits" ? "#eee" : "#fff" }}
@@ -272,6 +432,24 @@ function CoursesList() {
                 >
                   Workload {sortField === "workload" ? (sortOrder === "asc" ? "↑" : "↓") : ""}
                 </button>
+                {[
+                  { key: 'score_skills', label: 'Skills score' },
+                  { key: 'score_product', label: 'Product score' },
+                  { key: 'score_venture', label: 'Venture score' },
+                  { key: 'score_foundations', label: 'Foundations score' },
+                ].map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => {
+                      setSortField(key);
+                      setSortOrder(sortField === key ? (sortOrder === "desc" ? "asc" : "desc") : "desc");
+                    }}
+                    style={{ padding: "4px 8px", border: "1px solid #ccc", background: sortField === key ? "#eee" : "#fff" }}
+                    title={`Toggle ${label} ascending/descending`}
+                  >
+                    {label} {sortField === key ? (sortOrder === "asc" ? "↑" : "↓") : ""}
+                  </button>
+                ))}
                 <button
                   onClick={() => { setSortField(""); setSortOrder("asc"); }}
                   style={{ padding: "4px 8px", border: "1px solid #ccc" }}
@@ -327,7 +505,15 @@ function CoursesList() {
             </button>
           </div>
         </div>
-        <p style={{ marginTop: 4, color: "#555" }}>{courses.length} results</p>
+        {(() => {
+          const totalPages = Math.max(1, Math.ceil(totalResults / pageSize));
+          const shown = courses.length;
+          return (
+            <p style={{ marginTop: 4, color: "#555" }}>
+              Showing {shown} of {totalResults} results · Page {page} / {totalPages}
+            </p>
+          );
+        })()}
 
         {viewMode === 'list' ? (
           <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
@@ -374,6 +560,7 @@ function CoursesList() {
                       <li><strong>Type:</strong> {c.type}</li>
                     )}
                   </ul>
+                  <ScoreSummary course={c} />
                 </article>
               </li>
             ))}
@@ -458,6 +645,7 @@ function CoursesList() {
                           <div><strong>Type:</strong> {c.type}</div>
                         )}
                       </div>
+                      <ScoreSummary course={c} theme={fg === '#fff' ? 'dark' : 'light'} />
                     </article>
                   );
                 })}
@@ -475,13 +663,18 @@ function CoursesList() {
             Previous
           </button>
           <span>Page {page}</span>
-          <button
-            onClick={() => setPage((p) => p + 1)}
-            disabled={courses.length < pageSize}
-            style={{ marginLeft: "1rem" }}
-          >
-            Next
-          </button>
+          {(() => {
+            const totalPages = Math.max(1, Math.ceil(totalResults / pageSize));
+            return (
+              <button
+                onClick={() => setPage((p) => p + 1)}
+                disabled={page >= totalPages}
+                style={{ marginLeft: "1rem" }}
+              >
+                Next
+              </button>
+            );
+          })()}
         </div>
       </div>
     </div>

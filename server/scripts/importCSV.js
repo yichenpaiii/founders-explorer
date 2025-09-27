@@ -1,8 +1,9 @@
 // importCsv.js
 // Load environment variables from .env into process.env
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 // Node core: file system
 const fs = require('fs');
+const path = require('path');
 // CSV -> objects (sync parser)
 const { parse } = require('csv-parse/sync');
 // MySQL driver (promise API for async/await)
@@ -35,8 +36,19 @@ function splitTags(cell) {
 async function main() {
     // Read DB connection info & CSV path from env
     const {
-        DB_HOST, DB_PORT, DB_USER, DB_PASS, DB_NAME, CSV_PATH
+        DB_HOST,
+        DB_PORT,
+        DB_USER,
+        DB_PASS,
+        DB_NAME,
+        COURSES_CSV_PATH,
+        SCORES_CSV_PATH
     } = process.env;
+
+    const coursesCsvPath = COURSES_CSV_PATH;
+    if (!coursesCsvPath) {
+        throw new Error('Missing COURSES_CSV_PATH in environment');
+    }
 
     // Create a small MySQL connection pool (fine for a few thousand rows)
     const pool = await mysql.createPool({
@@ -51,9 +63,35 @@ async function main() {
     });
 
     // Read CSV file (into memory) and parse into rows (array of objects)
-    const csv = fs.readFileSync(CSV_PATH, 'utf8');
+    const csv = fs.readFileSync(coursesCsvPath, 'utf8');
     const rows = parse(csv, { columns: true, skip_empty_lines: true, trim: true });
     console.log(`Loaded ${rows.length} rows`);
+
+    let scoresByRowId = new Map();
+    const scoresPath = SCORES_CSV_PATH || path.join(path.dirname(coursesCsvPath), 'courses_scores.csv');
+    try {
+        const scoresCsv = fs.readFileSync(scoresPath, 'utf8');
+        const scoreRows = parse(scoresCsv, { columns: true, skip_empty_lines: true, trim: true });
+        const toNum = (value) => {
+            if (value == null || value === '') return null;
+            const num = Number(value);
+            return Number.isFinite(num) ? num : null;
+        };
+        for (const scoreRow of scoreRows) {
+            const rowId = (scoreRow.row_id || '').toString().trim();
+            if (!rowId) continue;
+            scoresByRowId.set(rowId, {
+                skills: toNum(scoreRow.score_skills_sigmoid),
+                product: toNum(scoreRow.score_product_sigmoid),
+                venture: toNum(scoreRow.score_venture_sigmoid),
+                foundations: toNum(scoreRow.score_foundations_sigmoid),
+            });
+        }
+        console.log(`Loaded ${scoresByRowId.size} score rows from ${scoresPath}`);
+    } catch (err) {
+        console.warn(`Could not load scores CSV at ${scoresPath}: ${err.message}`);
+        scoresByRowId = new Map();
+    }
 
     // Get (or create) a tag type ID by name.
     // Trick: ON DUPLICATE KEY + LAST_INSERT_ID lets us return the existing id on conflict.
@@ -81,6 +119,7 @@ async function main() {
 
         // Map header names from the new CSV format
         // courses table columns (descriptive fields)
+        const ROW_ID_COL = 'row_id';
         const COURSE_CODE_COL = 'course_code';
         const COURSE_NAME_COL = 'course_name';
         const URL_COL = 'course_url';
@@ -127,6 +166,12 @@ async function main() {
         // NOT NULL fallbacks for normalized schema
         const lang = ((row[LANG_COL] || '').toString().trim()) || 'unknown';
         const section = ((row[SECTION_COL] || '').toString().trim()) || null; // section may be null; we only insert offering if present
+        const rowId = ((row[ROW_ID_COL] || '').toString().trim());
+
+        if (!rowId) {
+            console.warn(`Row ${i + 1} has no row_id; skipped`);
+            continue;
+        }
 
         if (!courseName) {
             console.warn(`Row ${i + 1} has no course_name; skipped`);
@@ -157,14 +202,48 @@ async function main() {
             const courseId = cr.insertId;
 
             if (section) {
+              const score = scoresByRowId.get(rowId) || {};
+              const skillsScore = score.skills ?? null;
+              const productScore = score.product ?? null;
+              const ventureScore = score.venture ?? null;
+              const foundationsScore = score.foundations ?? null;
+
               await conn.execute(
-                `INSERT INTO course_offerings (course_id, section, type, prof_name)
-                 VALUES (?, ?, ?, ?)
+                `INSERT INTO course_offerings (
+                   course_id,
+                   row_id,
+                   section,
+                   type,
+                   prof_name,
+                   score_skills_sigmoid,
+                   score_product_sigmoid,
+                   score_venture_sigmoid,
+                   score_foundations_sigmoid
+                 )
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                  ON DUPLICATE KEY UPDATE
+                   course_id = VALUES(course_id),
+                   section = VALUES(section),
                    type = VALUES(type),
-                   prof_name = VALUES(prof_name)`,
-                [courseId, section, courseType, profName]
+                   prof_name = VALUES(prof_name),
+                   score_skills_sigmoid = VALUES(score_skills_sigmoid),
+                   score_product_sigmoid = VALUES(score_product_sigmoid),
+                   score_venture_sigmoid = VALUES(score_venture_sigmoid),
+                   score_foundations_sigmoid = VALUES(score_foundations_sigmoid)`,
+                [
+                  courseId,
+                  rowId,
+                  section,
+                  courseType,
+                  profName,
+                  skillsScore,
+                  productScore,
+                  ventureScore,
+                  foundationsScore,
+                ]
               );
+            } else {
+              console.warn(`Row ${i + 1} (${courseCode}) has no section; offering skipped`);
             }
 
             // For each selected column, treat its values as tags under that "type"

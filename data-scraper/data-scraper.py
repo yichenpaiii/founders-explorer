@@ -10,6 +10,8 @@ import time
 import hashlib
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 import hashlib
+from sentence_transformers import SentenceTransformer
+from keybert import KeyBERT
 
 section_codes = [
     "AR", "CGC", "CDH", "CDM", "ED", "GC", "EL",
@@ -32,6 +34,7 @@ SECTION_ABBREV = {
     "section of materials science and engineering": "MX",
     "section of mathematics": "MA",
     "section of microtechnics": "MT",
+    "management of technology and entrepreneurship": "MTE",
     "neuro-x section": "NX",
     "section of physics": "PH",
     "section of environmental sciences and engineering": "SIE",
@@ -110,6 +113,8 @@ def _count_nonempty(*vals) -> int:
 
 min_keywords = 10
 max_keywords = 15
+
+_KEYBERT_MODEL = None
 
 # Collect program labels we cannot confidently map (for diagnostics)
 UNMAPPED_PROGRAMS = set()
@@ -198,6 +203,65 @@ def parse_keywords_field(raw):
     parts = [_fix_mojibake(p).rstrip('.\n') for p in parts]
     return _normalize_kw_list(parts)
 
+
+def _ensure_keybert_model():
+    global _KEYBERT_MODEL
+    if KeyBERT is None:
+        return None
+    if _KEYBERT_MODEL is None:
+        try:
+            embedding_model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
+            _KEYBERT_MODEL = KeyBERT(model=embedding_model)
+        except Exception as exc:  # pragma: no cover - defensive guard
+            warn(f"KeyBERT initialization failed: {exc}")
+            _KEYBERT_MODEL = None
+    return _KEYBERT_MODEL
+
+
+def _extract_keywords_from_text(text: str, *, top_n: int = 20) -> list[str]:
+    if not text or not text.strip():
+        return []
+    model = _ensure_keybert_model()
+    if model is None:
+        return []
+    try:
+        results = model.extract_keywords(
+            text,
+            keyphrase_ngram_range=(1, 2),
+            nr_candidates=100,
+            top_n=top_n,
+            use_mmr=False,
+            use_maxsum=False,
+        )
+    except Exception as exc:  # pragma: no cover - model/runtime errors
+        warn(f"KeyBERT keyword extraction failed: {exc}")
+        return []
+    extracted = []
+    for kw, score in results:
+        if isinstance(kw, str) and kw.strip():
+            extracted.append(kw.strip().lower())
+    return extracted
+
+
+def _maybe_augment_keywords(existing: list[str] | None, text_sources: list[str]) -> list[str]:
+    existing = existing or []
+    if not isinstance(existing, list):
+        existing = [str(existing)]
+    # Normalize upfront for dedupe consistency
+    keywords = _normalize_kw_list(existing)
+    if len(keywords) >= min_keywords:
+        return keywords[:max_keywords]
+    combined_text = "\n\n".join(t for t in text_sources if isinstance(t, str) and t.strip())
+    if not combined_text:
+        return keywords
+    supplemental = _extract_keywords_from_text(combined_text, top_n=max_keywords)
+    for kw in supplemental:
+        if kw not in keywords:
+            keywords.append(kw)
+        if len(keywords) >= max_keywords:
+            break
+    return keywords
+
 def _canonicalize_prog_key(s: str) -> str:
     s = (s or "").lower().strip()
     s = re.sub(r"\s+", " ", s)
@@ -239,7 +303,7 @@ def main():
     data_dir = os.path.join(os.path.dirname(__file__), "data") if '__file__' in globals() else "data"
     os.makedirs(data_dir, exist_ok=True)
     output_csv = os.path.join(data_dir, "epfl_courses.csv")
-    embedding_csv = os.path.join(data_dir, "courses_embedding.csv")
+    embedding_csv = os.path.join(data_dir, "courses_scores.csv")
     headers_list = [
         "row_id","course_code","lang","section","semester","prof_name","course_name",
         "credits","exam_form","workload","type","keywords","available_programs","course_url"
@@ -385,6 +449,7 @@ def main():
                                     resume_text = _fix_mojibake(html.unescape(resume_text))
                                 if content_text:
                                     content_text = _fix_mojibake(html.unescape(content_text))
+                                keywords = _maybe_augment_keywords(keywords, [resume_text, content_text])
                             except Exception:
                                 # Be resilient if page format changes
                                 pass
