@@ -15,7 +15,8 @@ export async function getCourses({
   minFoundations,
 } = {}) {
   try {
-    const url = new URL("/api/courses", "http://localhost:3000");
+    // Use relative API path so it works in dev (Vite proxy) and prod (same-origin Pages Functions)
+    const url = new URL("/api/courses", window.location.origin);
 
     // Append query params if provided
     if (page != null) url.searchParams.set("page", String(page));
