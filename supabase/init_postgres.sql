@@ -66,8 +66,139 @@ create table if not exists public.offering_tags (
   primary key (offering_id, tag_id)
 );
 
--- View consumed by the Cloudflare Pages Function
-create or replace view public.courses_search_view as
+-- === Structured program/level modeling for Available programs ===
+-- Programs (e.g., Architecture, Electrical Engineering)
+create table if not exists public.programs (
+  id bigserial primary key,
+  name text unique not null
+);
+
+-- Degree levels (e.g., BA3, MA1). Enum for degree type.
+do $$ begin
+  if not exists (
+    select 1 from pg_type t join pg_namespace n on n.oid = t.typnamespace
+    where t.typname = 'degree_type'
+  ) then
+    create type degree_type as enum ('BA','MA','PhD');
+  end if;
+end $$;
+
+create table if not exists public.levels (
+  id bigserial primary key,
+  degree degree_type not null,
+  semester smallint,
+  label text not null,
+  constraint uniq_level unique (degree, label)
+);
+
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'levels' and column_name = 'semester'
+  ) then
+    begin
+      alter table public.levels alter column semester drop not null;
+    exception when undefined_column then
+      null;
+    end;
+  end if;
+
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'levels' and column_name = 'label'
+  ) then
+    alter table public.levels add column label text;
+    update public.levels
+      set label = case
+        when semester is not null then degree::text || semester::text
+        else degree::text
+      end
+    where label is null;
+  end if;
+
+  if exists (
+    select 1 from information_schema.constraint_column_usage
+    where table_schema = 'public' and table_name = 'levels' and constraint_name = 'levels_degree_semester_key'
+  ) then
+    begin
+      alter table public.levels drop constraint levels_degree_semester_key;
+    exception when undefined_object then null;
+    end;
+  end if;
+
+  begin
+    alter table public.levels drop constraint if exists uniq_level;
+  exception when undefined_object then null;
+  end;
+
+  begin
+    alter table public.levels add constraint uniq_level unique (degree, label);
+  exception when duplicate_object then null;
+  end;
+
+  update public.levels
+    set label = degree::text || semester::text
+  where label is null;
+
+  alter table public.levels alter column label set not null;
+end$$;
+
+-- Bridge: which offering is available for which program and level
+create table if not exists public.offering_program_levels (
+  offering_id bigint not null references public.course_offerings(id) on delete cascade,
+  program_id  bigint not null references public.programs(id) on delete cascade,
+  level_id    bigint not null references public.levels(id) on delete cascade,
+  primary key (offering_id, program_id, level_id)
+);
+
+-- Indexes for common filters
+create index if not exists idx_opl_program on public.offering_program_levels(program_id);
+create index if not exists idx_opl_level   on public.offering_program_levels(level_id);
+create index if not exists idx_opl_prog_level on public.offering_program_levels(program_id, level_id);
+
+drop view if exists public.courses_search_view;
+
+create view public.courses_search_view as
+with normalized_programs as (
+  select distinct
+    co.course_id,
+    l.degree::text as degree_txt,
+    l.label as level_label,
+    l.semester,
+    p.name as program_name,
+    (l.label || ' ' || p.name) as label,
+    l.label as level_code,
+    case
+      when l.semester is not null then l.degree::text || '-' || lpad(l.semester::text, 3, '0')
+      else l.degree::text || '-z-' || replace(lower(l.label), ' ', '_')
+    end as level_sort
+  from public.course_offerings co
+  join public.offering_program_levels opl on opl.offering_id = co.id
+  join public.programs p on p.id = opl.program_id
+  join public.levels   l on l.id = opl.level_id
+),
+program_agg as (
+  select
+    course_id,
+    array_agg(label order by level_sort, program_name) as available_program_labels,
+    array_agg(program_name order by program_name)       as available_programs
+  from normalized_programs
+  group by course_id
+),
+level_agg as (
+  select
+    course_id,
+    array_agg(lvl.level_code order by lvl.level_sort) as available_levels
+  from (
+    select distinct
+      course_id,
+      level_code,
+      level_sort
+    from normalized_programs
+  ) lvl
+  group by course_id
+)
 select
   c.id,
   c.course_name,
@@ -86,8 +217,10 @@ select
   agg.max_score_product_sigmoid,
   agg.max_score_venture_sigmoid,
   agg.max_score_foundations_sigmoid,
-  coalesce(tags_kw.keywords, array[]::text[]) as keywords,
-  coalesce(tags_ap.available_programs, array[]::text[]) as available_programs
+  coalesce(tags_kw.keywords, array[]::text[])            as keywords,
+  coalesce(program_agg.available_program_labels, array[]::text[]) as available_program_labels,
+  coalesce(level_agg.available_levels, array[]::text[])             as available_levels,
+  coalesce(program_agg.available_programs, array[]::text[])         as available_programs
 from public.courses c
 left join (
   select
@@ -102,9 +235,9 @@ left join (
     max(co.score_foundations_sigmoid) as max_score_foundations_sigmoid
   from public.course_offerings co
   group by co.course_id
- ) agg on agg.course_id = c.id
+) agg on agg.course_id = c.id
 left join (
-  -- Aggregate keywords from offering-level tags up to course level
+  -- Aggregate keywords from offering-level tags up to course level (unchanged)
   select
     co.course_id,
     array_agg(distinct t.name) filter (where tt.name = 'keywords') as keywords
@@ -114,17 +247,8 @@ left join (
   join public.tag_types tt on tt.id = t.tag_type_id
   group by co.course_id
 ) tags_kw on tags_kw.course_id = c.id
-left join (
-  -- Aggregate available_programs from offering-level tags up to course level
-  select
-    co.course_id,
-    array_agg(distinct t.name) filter (where tt.name = 'available_programs') as available_programs
-  from public.offering_tags ot
-  join public.course_offerings co on co.id = ot.offering_id
-  join public.tags t on t.id = ot.tag_id
-  join public.tag_types tt on tt.id = t.tag_type_id
-  group by co.course_id
-) tags_ap on tags_ap.course_id = c.id;
+left join program_agg on program_agg.course_id = c.id
+left join level_agg   on level_agg.course_id = c.id;
 
 -- Grant read on view to anon (keep base tables private)
 do $$ begin
@@ -134,3 +258,207 @@ do $$ begin
     grant select on public.courses_search_view to anon;
   end if;
 end $$;
+
+-- Row Level Security (RLS)
+DO $$ BEGIN
+  PERFORM 1 FROM pg_roles WHERE rolname = 'anon';
+  IF FOUND THEN
+    GRANT SELECT ON public.courses, public.course_offerings, public.tags, public.tag_types,
+                  public.offering_tags, public.programs, public.levels, public.offering_program_levels
+    TO anon;
+  END IF;
+  PERFORM 1 FROM pg_roles WHERE rolname = 'authenticated';
+  IF FOUND THEN
+    GRANT SELECT ON public.courses, public.course_offerings, public.tags, public.tag_types,
+                  public.offering_tags, public.programs, public.levels, public.offering_program_levels
+    TO authenticated;
+  END IF;
+END $$;
+
+ALTER TABLE public.courses                  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.course_offerings         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tags                     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tag_types                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.offering_tags            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.programs                 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.levels                   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.offering_program_levels ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='courses' AND policyname='read_courses'
+  ) THEN
+    CREATE POLICY read_courses ON public.courses FOR SELECT
+      TO anon, authenticated
+      USING (true);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='course_offerings' AND policyname='read_course_offerings'
+  ) THEN
+    CREATE POLICY read_course_offerings ON public.course_offerings FOR SELECT
+      TO anon, authenticated
+      USING (true);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='tags' AND policyname='read_tags'
+  ) THEN
+    CREATE POLICY read_tags ON public.tags FOR SELECT
+      TO anon, authenticated
+      USING (true);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='tag_types' AND policyname='read_tag_types'
+  ) THEN
+    CREATE POLICY read_tag_types ON public.tag_types FOR SELECT
+      TO anon, authenticated
+      USING (true);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='offering_tags' AND policyname='read_offering_tags'
+  ) THEN
+    CREATE POLICY read_offering_tags ON public.offering_tags FOR SELECT
+      TO anon, authenticated
+      USING (true);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='programs' AND policyname='read_programs'
+  ) THEN
+    CREATE POLICY read_programs ON public.programs FOR SELECT
+      TO anon, authenticated
+      USING (true);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='levels' AND policyname='read_levels'
+  ) THEN
+    CREATE POLICY read_levels ON public.levels FOR SELECT
+      TO anon, authenticated
+      USING (true);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='offering_program_levels' AND policyname='read_offering_program_levels'
+  ) THEN
+    CREATE POLICY read_offering_program_levels ON public.offering_program_levels FOR SELECT
+      TO anon, authenticated
+      USING (true);
+  END IF;
+END $$;
+
+-- === Runnable migration: normalize legacy 'available_programs' tags into structured tables ===
+WITH src AS (
+  SELECT
+    co.id AS offering_id,
+    t.name AS label,
+    regexp_replace(t.name, '^([A-Za-z]+[0-9]+)\s+(.*)$', '\1') AS lv,
+    regexp_replace(t.name, '^([A-Za-z]+[0-9]+)\s+(.*)$', '\2') AS program
+  FROM public.offering_tags ot
+  JOIN public.course_offerings co ON co.id = ot.offering_id
+  JOIN public.tags t ON t.id = ot.tag_id
+  JOIN public.tag_types tt ON tt.id = t.tag_type_id
+  WHERE tt.name = 'available_programs'
+), norm_raw AS (
+  SELECT
+    offering_id,
+    CASE
+      WHEN label ~* '^\s*minor\s+(autumn|spring)\s+semester\s+' THEN 'MA'
+      WHEN label ~* '^\s*(ba|ma)[0-9]+' THEN upper(substring(label FROM '^[A-Za-z]+'))
+      WHEN label ~* '^\s*(edoc|phd)\s+' THEN 'PhD'
+      ELSE NULL
+    END AS degree_txt,
+    CASE
+      WHEN label ~* '^\s*(ba|ma)[0-9]+' THEN (substring(label FROM '[0-9]+'))::smallint
+      ELSE NULL
+    END AS semester_no,
+    CASE
+      WHEN label ~* '^\s*minor\s+(autumn|spring)\s+semester\s+(.*)$' THEN trim(regexp_replace(label, '^\s*Minor\s+(Autumn|Spring)\s+Semester\s+', ''))
+      WHEN label ~* '^\s*(ba|ma)[0-9]+\s+(.*)$' THEN trim(regexp_replace(label, '^\s*[A-Za-z]+[0-9]+\s+', ''))
+      WHEN label ~* '^\s*(edoc|phd)\s+(.*)$' THEN trim(regexp_replace(label, '^\s*(edoc|phd)\s+', ''))
+      ELSE NULL
+    END AS program_name,
+    CASE
+      WHEN label ~* '^\s*minor\s+(autumn|spring)\s+semester\s+' THEN
+        'Minor ' || initcap(regexp_replace(label, '^\s*Minor\s+([A-Za-z]+)\s+Semester.*$', '\1')) || ' Semester'
+      WHEN label ~* '^\s*(ba|ma)[0-9]+' THEN upper(substring(label FROM '^[A-Za-z]+')) || substring(label FROM '[0-9]+')
+      WHEN label ~* '^\s*(edoc|phd)\s+' THEN 'edoc'
+      ELSE NULL
+    END AS level_label
+  FROM src
+  WHERE (
+    label ~* '^\s*(ba|ma)[0-9]+\s+'
+    OR label ~* '^\s*(edoc|phd)\s+'
+    OR label ~* '^\s*minor\s+(autumn|spring)\s+semester\s+'
+  )
+), norm AS (
+  SELECT *
+  FROM norm_raw
+  WHERE degree_txt IS NOT NULL
+    AND (program_name IS NOT NULL AND program_name <> '')
+    AND level_label IS NOT NULL
+), ins_prog AS (
+  INSERT INTO public.programs(name)
+  SELECT DISTINCT program_name FROM norm
+  ON CONFLICT (name) DO NOTHING
+  RETURNING id, name
+), ins_level AS (
+  INSERT INTO public.levels(degree, semester, label)
+  SELECT DISTINCT degree_txt::degree_type, semester_no, level_label FROM norm
+  ON CONFLICT (degree, label) DO NOTHING
+  RETURNING id, degree, label
+)
+INSERT INTO public.offering_program_levels (offering_id, program_id, level_id)
+SELECT n.offering_id, p.id, l.id
+FROM norm n
+JOIN public.programs p ON p.name = n.program_name
+JOIN public.levels   l ON l.degree = n.degree_txt::degree_type AND l.label = n.level_label
+ON CONFLICT DO NOTHING;
+
+-- Optional migration helper from legacy 'available_programs' tags (if present)
+-- This splits labels like 'BA3 Architecture' into degree='BA', semester=3, program='Architecture'.
+-- Review before running if program names contain spaces.
+--
+-- with src as (
+--   select
+--     co.id as offering_id,
+--     t.name as label,
+--     regexp_replace(t.name, '^([A-Za-z]+[0-9]+)\\s+(.*)$', '\\1') as lv,
+--     regexp_replace(t.name, '^([A-Za-z]+[0-9]+)\\s+(.*)$', '\\2') as program
+--   from public.offering_tags ot
+--   join public.course_offerings co on co.id = ot.offering_id
+--   join public.tags t on t.id = ot.tag_id
+--   join public.tag_types tt on tt.id = t.tag_type_id
+--   where tt.name = 'available_programs'
+-- ), norm as (
+--   select
+--     offering_id,
+--     substring(lv from '^[A-Za-z]+') as degree_txt,
+--     (substring(lv from '[0-9]+'))::smallint as semester_no,
+--     program
+--   from src
+-- ), ins_prog as (
+--   insert into public.programs(name)
+--   select distinct program from norm
+--   on conflict (name) do nothing
+--   returning id, name
+-- ), ins_level as (
+--   insert into public.levels(degree, semester)
+--   select distinct degree_txt::degree_type, semester_no from norm
+--   on conflict (degree, semester) do nothing
+--   returning id
+-- )
+-- insert into public.offering_program_levels (offering_id, program_id, level_id)
+-- select n.offering_id, p.id, l.id
+-- from norm n
+-- join public.programs p on p.name = n.program
+-- join public.levels   l on l.degree = n.degree_txt::degree_type and l.semester = n.semester_no
+-- on conflict do nothing;
+
+-- Query examples:
+-- BA3 only:        select * from public.courses_search_view where 'BA3' = any(available_levels);
+-- Architecture:    select * from public.courses_search_view where 'Architecture' = any(available_programs);
+-- BA3 + Arch:      select * from public.courses_search_view where 'BA3 Architecture' = any(available_program_labels);

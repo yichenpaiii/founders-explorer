@@ -11,7 +11,6 @@ function Questionnaire() {
         major: '',
         minor: ''
     });
-    const [isFinished, setIsFinished] = useState(false);
     const [programsTree, setProgramsTree] = useState(null);
     const [loadError, setLoadError] = useState(null);
 
@@ -39,56 +38,26 @@ function Questionnaire() {
 
     // Submit handler
     const handleSubmit = () => {
-        // Build the available_program tags from answers
-        const p = (formData.program || '').trim();
-        const sem = (formData.semester || '').trim();
+        const degree = (formData.program || '').trim();
+        const level = (formData.semester || '').trim();
         const major = (formData.major || '').trim();
+
         const minor = (formData.minor || '').trim();
 
-        const tags = [];
+        const params = new URLSearchParams();
+        if (degree) params.set('degree', degree);
+        if (level) params.set('level', level);
+        if (major) params.set('major', major);
+        if (degree === 'MA' && minor) params.set('minor', minor);
 
-        if ((p === 'BA' || p === 'MA') && sem && major) {
-            tags.push(`${sem} ${major}`); // e.g., MA2 Computer Science, BA1 Architecture
-        } else if (p === 'PhD' && major) {
-            tags.push(`edoc ${major}`); // follow data-scraper canonical PhD bucket
-        }
-
-        if (p === 'MA' && minor) {
-            // Build canonical Minor tag with season from semester and selected minor
-            const semLower = sem.toLowerCase();
-            let season = '';
-            const m = sem.match(/^MA(\d+)$/i);
-            if (m) {
-                const n = parseInt(m[1], 10);
-                season = (n % 2 === 1) ? 'Minor Autumn Semester' : 'Minor Spring Semester';
-            } else if (semLower.includes('autumn')) {
-                season = 'Minor Autumn Semester';
-            } else if (semLower.includes('spring')) {
-                season = 'Minor Spring Semester';
-            }
-            if (season) {
-                tags.push(`${season} ${minor}`);
-            } else {
-                // Fallback without season (less specific)
-                tags.push(`Minor ${minor}`);
-            }
-        }
-
-        // Navigate to courses with available_programs filter
-        if (tags.length) {
-            const qs = new URLSearchParams({ available_programs: tags.join(',') }).toString();
-            navigate(`/courses?${qs}`);
-        } else {
-            // Fallback: just finish
-            setIsFinished(true);
-        }
+        const qs = params.toString();
+        navigate(qs ? `/courses?${qs}` : '/courses');
     };
 
     // Compute options for the current step without using hooks later in the tree.
     const computeOptions = (stepIndex, data, tree) => {
         if (!tree) return [];
         const safeKeys = (obj) => obj ? Object.keys(obj) : [];
-        const isMinorSemester = (s) => typeof s === 'string' && s.toLowerCase().includes('minor');
         const step = [
             {
                 key: 'program',
@@ -271,10 +240,6 @@ function Questionnaire() {
         }
     }, [currentStep, programsTree, loadError]);
 
-    const safeKeys = (obj) => obj ? Object.keys(obj) : [];
-    const isMinorSemester = (s) => typeof s === 'string' && s.toLowerCase().includes('minor');
-
-
     if (!programsTree && !loadError) {
         return <div style={{display:'flex',justifyContent:'center',alignItems:'center',height:'100vh',width:'100vw'}}><h2>Loading options…</h2></div>;
     }
@@ -294,40 +259,36 @@ function Questionnaire() {
 
     return (
         <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh',width: '100vw'}}>
-            {isFinished ? (
-                <h2>Finished!</h2>
-            ) : (
-                <div style={{textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '20px'}}>
-                    <h2>{q.question}</h2>
-                    {(q.key === 'major' || q.key === 'minor') ? (
-                        <div style={{display: 'flex', flexDirection: 'row', gap: '10px', justifyContent: 'center', alignItems: 'center'}}>
-                            <select
-                                value={formData[q.key]}
-                                onChange={(e) => setFormData(prev => ({ ...prev, [q.key]: e.target.value }))}
-                            >
-                                <option value="" disabled>Select an option</option>
-                                {options.map(opt => (
-                                    <option key={opt} value={opt}>{opt}</option>
-                                ))}
-                            </select>
-                            <button onClick={() => handleAnswer(formData[q.key])} disabled={!formData[q.key]}>Next</button>
-                            <button onClick={goBack} disabled={!canGoBack}>Back</button>
-                        </div>
-                    ) : (
-                        <div style={{display: 'flex', flexDirection: 'row', gap: '10px', justifyContent: 'center', alignItems: 'center'}}>
-                            {(() => {
-                                const opts = options.includes('Other') ? options : [...options, 'Other'];
-                                return opts.map(opt => (
-                                    <button key={opt} onClick={() => handleAnswer(opt)}>
-                                        {opt}
-                                    </button>
-                                ));
-                            })()}
-                            <button onClick={goBack} disabled={!canGoBack}>Back</button>
-                        </div>
-                    )}
-                </div>
-            )}
+            <div style={{textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '20px'}}>
+                <h2>{q.question}</h2>
+                {(q.key === 'major' || q.key === 'minor') ? (
+                    <div style={{display: 'flex', flexDirection: 'row', gap: '10px', justifyContent: 'center', alignItems: 'center'}}>
+                        <select
+                            value={formData[q.key]}
+                            onChange={(e) => setFormData(prev => ({ ...prev, [q.key]: e.target.value }))}
+                        >
+                            <option value="" disabled>Select an option</option>
+                            {options.map(opt => (
+                                <option key={opt} value={opt}>{opt}</option>
+                            ))}
+                        </select>
+                        <button onClick={() => handleAnswer(formData[q.key])} disabled={!formData[q.key]}>Next</button>
+                        <button onClick={goBack} disabled={!canGoBack}>Back</button>
+                    </div>
+                ) : (
+                    <div style={{display: 'flex', flexDirection: 'row', gap: '10px', justifyContent: 'center', alignItems: 'center'}}>
+                        {(() => {
+                            const opts = options.includes('Other') ? options : [...options, 'Other'];
+                            return opts.map(opt => (
+                                <button key={opt} onClick={() => handleAnswer(opt)}>
+                                    {opt}
+                                </button>
+                            ));
+                        })()}
+                        <button onClick={goBack} disabled={!canGoBack}>Back</button>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

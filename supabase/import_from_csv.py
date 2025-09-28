@@ -15,9 +15,12 @@ Requirements:
 
 The script performs bulk upserts in this order:
   1. courses
-  2. tags
+  2. tags (keywords)
   3. course_offerings
-  4. course_tags
+  4. offering_tags (keywords)
+  5. programs
+  6. levels
+  7. offering_program_levels
 
 It matches the schema created by supabase/init_postgres.sql.
 """
@@ -29,6 +32,7 @@ import ast
 import csv
 import json
 import os
+import re
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -199,6 +203,59 @@ def parse_list_field(value: str) -> List[str]:
     return []
 
 
+PROGRAM_LABEL_RE = re.compile(r"^\s*([A-Za-z]+)(\d+)\s+(.*)$")
+MINOR_LABEL_RE = re.compile(r"^\s*Minor\s+(Autumn|Spring)\s+Semester\s+(.*)$", re.IGNORECASE)
+EDOC_LABEL_RE = re.compile(r"^\s*(edoc|phd)\s+(.*)$", re.IGNORECASE)
+
+
+def normalize_degree(token: str) -> str | None:
+    token_up = token.upper()
+    if token_up in {"BA"}:
+        return "BA"
+    if token_up in {"MA"}:
+        return "MA"
+    if token_up in {"PHD", "EDOC", "PHD."}:
+        return "PhD"
+    return None
+
+
+def parse_program_label(label: str) -> Tuple[str, int | None, str, str] | None:
+    if not label:
+        return None
+    match = PROGRAM_LABEL_RE.match(label)
+    if not match:
+        minor_match = MINOR_LABEL_RE.match(label)
+        if minor_match:
+            season, program_name = minor_match.groups()
+            program = program_name.strip()
+            if not program:
+                return None
+            level_label = f"Minor {season.capitalize()} Semester"
+            return 'MA', None, level_label, program
+
+        edoc_match = EDOC_LABEL_RE.match(label)
+        if edoc_match:
+            program = edoc_match.group(2).strip()
+            if not program:
+                return None
+            return 'PhD', None, 'edoc', program
+        return None
+
+    degree_raw, semester_raw, program_name = match.groups()
+    degree = normalize_degree(degree_raw)
+    if degree is None:
+        return None
+    try:
+        semester = int(semester_raw)
+    except ValueError:
+        return None
+    program = program_name.strip()
+    if not program:
+        return None
+    level_label = f"{degree}{semester}"
+    return degree, semester, level_label, program
+
+
 def coalesce(*values: Any, fallback: Any) -> Any:
     for v in values:
         if isinstance(v, str):
@@ -241,8 +298,9 @@ def build_payloads(
     Dict[str, Dict[str, Any]],  # courses_map by course_code
     List[Dict[str, Any]],       # offerings rows (with course_code, row_id, ...)
     Dict[str, set[str]],        # keywords per course_code (for tag creation)
-    Dict[str, set[str]],        # programs per course_code (for tag creation)
-    set[Tuple[str, str, str]]   # offering_tag_links: (row_id, tag_type, tag_name)
+    set[Tuple[str, str]],       # offering_keyword_links: (row_id, keyword)
+    set[Tuple[str, str, str, int | None, str]],  # offering_program_links: (row_id, degree, level_label, semester, program_name)
+    set[str],                   # unparsed program labels (for logging)
 ]:
     if not courses_csv.exists():
         raise FileNotFoundError(f"Missing CSV {courses_csv}")
@@ -254,8 +312,9 @@ def build_payloads(
     courses_map: Dict[str, Dict[str, Any]] = {}
     offerings: List[Dict[str, Any]] = []
     keywords_map: Dict[str, set[str]] = defaultdict(set)
-    programs_map: Dict[str, set[str]] = defaultdict(set)
-    offering_tag_links: set[Tuple[str, str, str]] = set()
+    keyword_tag_links: set[Tuple[str, str]] = set()
+    offering_program_links: set[Tuple[str, str, str, int | None, str]] = set()
+    unparsed_program_labels: set[str] = set()
 
     with courses_csv.open(newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
@@ -309,15 +368,25 @@ def build_payloads(
             for kw in keywords:
                 keywords_map[course_code].add(kw)
                 if row_id:
-                    offering_tag_links.add((row_id, "keywords", kw))
+                    keyword_tag_links.add((row_id, kw))
 
             programs = parse_list_field(row.get("available_programs", ""))
             for prog in programs:
-                programs_map[course_code].add(prog)
-                if row_id:
-                    offering_tag_links.add((row_id, "available_programs", prog))
+                parsed = parse_program_label(prog)
+                if parsed and row_id:
+                    degree, semester, level_label, program_name = parsed
+                    offering_program_links.add((row_id, degree, level_label, semester, program_name))
+                else:
+                    unparsed_program_labels.add(prog)
 
-    return courses_map, offerings, keywords_map, programs_map, offering_tag_links
+    return (
+        courses_map,
+        offerings,
+        keywords_map,
+        keyword_tag_links,
+        offering_program_links,
+        unparsed_program_labels,
+    )
 
 
 def main() -> None:
@@ -328,7 +397,14 @@ def main() -> None:
 
     client = SupabaseClient(args.supabase_url, args.service_role_key, args.batch_size)
 
-    courses_map, offerings, keywords_map, programs_map, offering_tag_links = build_payloads(COURSES_CSV, SCORES_CSV)
+    (
+        courses_map,
+        offerings,
+        keywords_map,
+        keyword_tag_links,
+        offering_program_links,
+        unparsed_program_labels,
+    ) = build_payloads(COURSES_CSV, SCORES_CSV)
 
     print(f"Preparing to upsert {len(courses_map)} courses, {len(offerings)} offerings")
 
@@ -347,7 +423,8 @@ def main() -> None:
 
     # 2. Ensure tags exist
     tag_types = {item["name"]: item["id"] for item in client.select("tag_types", columns="id,name")}
-    missing_types = {"keywords", "available_programs"} - tag_types.keys()
+    required_tag_types = {"keywords"}
+    missing_types = required_tag_types - tag_types.keys()
     if missing_types:
         raise RuntimeError(f"Missing tag types in Supabase: {missing_types}")
 
@@ -356,13 +433,6 @@ def main() -> None:
     for _course_code, tags in keywords_map.items():
         for name in tags:
             key = (tag_types["keywords"], name)
-            if key in tag_pairs:
-                continue
-            tag_pairs.add(key)
-            tag_rows.append({"tag_type_id": key[0], "name": name})
-    for _course_code, tags in programs_map.items():
-        for name in tags:
-            key = (tag_types["available_programs"], name)
             if key in tag_pairs:
                 continue
             tag_pairs.add(key)
@@ -405,10 +475,9 @@ def main() -> None:
 
     offering_tag_rows = []
     seen_pairs: set[Tuple[int, int]] = set()
-    for row_id, tag_type, tag_name in offering_tag_links:
+    for row_id, keyword in keyword_tag_links:
         off_id = rowid_to_offid.get(row_id)
-        tag_type_id = tag_types.get(tag_type)
-        tag_id = tag_lookup.get((tag_type_id, tag_name))
+        tag_id = tag_lookup.get((tag_types["keywords"], keyword))
         if not off_id or not tag_id:
             continue
         key = (off_id, tag_id)
@@ -421,11 +490,64 @@ def main() -> None:
         client.insert_ignore("offering_tags", offering_tag_rows)
 
     # Summary
-    prog_count = sum(1 for _r, _t, _n in offering_tag_links if _t == "available_programs")
-    kw_count = sum(1 for _r, _t, _n in offering_tag_links if _t == "keywords")
+    # 5. Structured program / level data
+    program_rows = [
+        {"name": program_name.strip()}
+        for program_name in sorted({entry[4].strip() for entry in offering_program_links if entry[4].strip()})
+    ]
+    if program_rows:
+        client.upsert("programs", program_rows, on_conflict="name")
+
+    level_rows = [
+        {"degree": degree, "semester": semester, "label": level_label}
+        for degree, semester, level_label in sorted({(entry[1], entry[3] if entry[3] is not None else 10_000, entry[2]) for entry in offering_program_links})
+    ]
+    if level_rows:
+        client.upsert("levels", level_rows, on_conflict="degree,label")
+
+    program_lookup = {row["name"]: row["id"] for row in client.select_all("programs", columns="id,name")}
+    level_lookup = {
+        (row["degree"], row["label"]): row["id"]
+        for row in client.select_all("levels", columns="id,degree,label")
+    }
+
+    opl_rows = []
+    seen_opl: set[Tuple[int, int, int]] = set()
+    for row_id, degree, level_label, semester, program_name in offering_program_links:
+        off_id = rowid_to_offid.get(row_id)
+        program_id = program_lookup.get(program_name)
+        level_id = level_lookup.get((degree, level_label))
+        if not off_id or program_id is None or level_id is None:
+            continue
+        key = (off_id, program_id, level_id)
+        if key in seen_opl:
+            continue
+        seen_opl.add(key)
+        opl_rows.append({
+            "offering_id": off_id,
+            "program_id": program_id,
+            "level_id": level_id,
+        })
+
+    if opl_rows:
+        client.insert_ignore("offering_program_levels", opl_rows)
+
+    kw_count = len(keyword_tag_links)
+    structured_count = len(offering_program_links)
     print(
-        f"Linked offering↔tags: programs={prog_count} (rows inserted may be fewer due to dedupe), keywords={kw_count}"
+        f"Linked offering↔tags (keywords): {kw_count} (rows inserted may be fewer due to dedupe)"
     )
+    print(
+        f"Linked offering↔program levels: {structured_count} (rows inserted may be fewer due to dedupe)"
+    )
+
+    if unparsed_program_labels:
+        samples = sorted(unparsed_program_labels)[:5]
+        sample_text = ", ".join(samples)
+        print(
+            f"Warning: skipped {len(unparsed_program_labels)} available_program labels that could not be parsed. "
+            f"Examples: {sample_text}"
+        )
 
     print("Import completed")
 

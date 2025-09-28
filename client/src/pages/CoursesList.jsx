@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { getCourses } from "../api/courses_api";  // adjust path if needed
 
 const GRID_MIN_WIDTH = 220; // px
@@ -18,6 +18,89 @@ const MIN_SCORE_SLIDERS = [
   { key: 'minFoundations', label: 'Foundations' },
 ];
 
+const TAG_COLORS = [
+  '#2563eb', '#059669', '#f97316', '#a855f7', '#ec4899',
+  '#14b8a6', '#facc15', '#ef4444', '#6366f1', '#10b981',
+];
+
+function colorForTag(tag) {
+  if (!tag) return '#4b5563';
+  let hash = 0;
+  for (let i = 0; i < tag.length; i += 1) {
+    hash = (hash << 5) - hash + tag.charCodeAt(i);
+    hash |= 0;
+  }
+  const index = Math.abs(hash) % TAG_COLORS.length;
+  return TAG_COLORS[index];
+}
+
+function tagTextColor(hex) {
+  const normalized = hex.replace('#', '');
+  const bigint = parseInt(normalized, 16);
+  const r = (bigint >> 16) & 255;
+  const g = (bigint >> 8) & 255;
+  const b = bigint & 255;
+  const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+  return luminance > 170 ? '#111' : '#fff';
+}
+
+function renderLevelTags(levels) {
+  if (!Array.isArray(levels) || levels.length === 0) return null;
+  const uniqueLevels = Array.from(new Set(levels.map((name) => name?.trim()).filter(Boolean)));
+  if (uniqueLevels.length === 0) return null;
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+      {uniqueLevels.map((name) => {
+        const color = colorForTag(name);
+        return (
+          <span
+            key={name}
+            style={{
+              background: color,
+              color: tagTextColor(color),
+              padding: '2px 8px',
+              borderRadius: 999,
+              fontSize: 10,
+              fontWeight: 600,
+              opacity: 0.85,
+            }}
+          >
+            {name}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function renderProgramTags(programs) {
+  if (!Array.isArray(programs) || programs.length === 0) return null;
+  const uniquePrograms = Array.from(new Set(programs.map((name) => name?.trim()).filter(Boolean)));
+  if (uniquePrograms.length === 0) return null;
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+      {uniquePrograms.map((name) => {
+        const color = colorForTag(name);
+        return (
+          <span
+            key={name}
+            style={{
+              background: color,
+              color: tagTextColor(color),
+              padding: '2px 8px',
+              borderRadius: 999,
+              fontSize: 11,
+              fontWeight: 600,
+            }}
+          >
+            {name}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 const createDefaultFilters = () => ({
   query: "",
   type: "",
@@ -28,18 +111,153 @@ const createDefaultFilters = () => ({
   minProduct: 0,
   minVenture: 0,
   minFoundations: 0,
+  degree: "",
+  level: "",
+  major: "",
+  minor: "",
 });
 
-const areFiltersEqual = (a, b) =>
-  a.query === b.query
-  && a.type === b.type
-  && a.semester === b.semester
-  && String(a.creditsMin ?? "") === String(b.creditsMin ?? "")
-  && String(a.creditsMax ?? "") === String(b.creditsMax ?? "")
-  && Number(a.minSkills) === Number(b.minSkills)
-  && Number(a.minProduct) === Number(b.minProduct)
-  && Number(a.minVenture) === Number(b.minVenture)
-  && Number(a.minFoundations) === Number(b.minFoundations);
+const FILTER_KEYS = Object.keys(createDefaultFilters());
+
+function parseFiltersFromSearch(search) {
+  const base = createDefaultFilters();
+  if (!search) return base;
+  const sp = new URLSearchParams(search);
+  base.degree = sp.get('degree') || '';
+  base.level = sp.get('level') || '';
+  base.major = sp.get('major') || '';
+  base.type = sp.get('type') || '';
+  base.semester = sp.get('semester') || '';
+  base.minor = sp.get('minor') || '';
+  if (base.level && !base.semester) {
+    base.semester = inferSemesterFromLevel(base.level) || '';
+  }
+  const creditsMinParam = sp.get('creditsMin');
+  if (creditsMinParam !== null) base.creditsMin = creditsMinParam;
+  const creditsMaxParam = sp.get('creditsMax');
+  if (creditsMaxParam !== null) base.creditsMax = creditsMaxParam;
+
+  const parseScore = (value) => {
+    if (value === null) return undefined;
+    const num = Number(value);
+    return Number.isFinite(num) ? num : undefined;
+  };
+
+  const minSkillsParam = parseScore(sp.get('minSkills'));
+  if (minSkillsParam !== undefined) base.minSkills = minSkillsParam;
+  const minProductParam = parseScore(sp.get('minProduct'));
+  if (minProductParam !== undefined) base.minProduct = minProductParam;
+  const minVentureParam = parseScore(sp.get('minVenture'));
+  if (minVentureParam !== undefined) base.minVenture = minVentureParam;
+  const minFoundationsParam = parseScore(sp.get('minFoundations'));
+  if (minFoundationsParam !== undefined) base.minFoundations = minFoundationsParam;
+  return base;
+}
+
+function filtersAreEqual(a, b) {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  for (const key of FILTER_KEYS) {
+    const va = a[key];
+    const vb = b[key];
+    if (Number.isFinite(va) || Number.isFinite(vb)) {
+      if (Number(va) !== Number(vb)) return false;
+    } else if ((va ?? '') !== (vb ?? '')) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function getDegreeOptions(tree) {
+  if (!tree || typeof tree !== 'object') return [];
+  return Object.keys(tree);
+}
+
+function getLevelOptions(tree, degree) {
+  if (!tree || !degree || !tree[degree]) return [];
+  return Object.keys(tree[degree] || {})
+    .filter((lvl) => /^[A-Za-z]+\d+$/i.test(lvl))
+    .sort();
+}
+
+function getMajorOptions(tree, degree, level) {
+  if (!tree || !degree || !level) return [];
+  if (degree === 'PhD') {
+    const list = Array.isArray(tree.PhD?.edoc) ? tree.PhD.edoc : [];
+    return list.slice().sort();
+  }
+  const bucket = tree[degree];
+  const list = Array.isArray(bucket?.[level]) ? bucket[level] : [];
+  return list.slice().sort();
+}
+
+function withValueOption(options, value) {
+  if (!value) return options;
+  if (options.includes(value)) return options;
+  return [...options, value];
+}
+
+function getMinorOptions(tree, degree, level) {
+  if (!tree || degree !== 'MA') return [];
+  const source = tree.MA || {};
+  const autumn = Array.isArray(source['Minor Autumn Semester']) ? source['Minor Autumn Semester'] : [];
+  const spring = Array.isArray(source['Minor Spring Semester']) ? source['Minor Spring Semester'] : [];
+  if (!level) {
+    return Array.from(new Set([...autumn, ...spring])).sort();
+  }
+  const match = level.match(/^MA(\d+)/i);
+  if (match) {
+    const idx = Number(match[1]);
+    if (Number.isFinite(idx)) {
+      return (idx % 2 === 1 ? autumn : spring).slice().sort();
+    }
+  }
+  if (level.toLowerCase().includes('autumn')) return autumn.slice().sort();
+  if (level.toLowerCase().includes('spring')) return spring.slice().sort();
+  return Array.from(new Set([...autumn, ...spring])).sort();
+}
+
+function inferSemesterFromLevel(level) {
+  if (!level) return '';
+  const lower = level.toLowerCase();
+  if (lower.includes('spring')) return 'summer';
+  if (lower.includes('autumn')) return 'winter';
+  const match = level.match(/(\d+)/);
+  if (match) {
+    const num = Number(match[1]);
+    if (Number.isFinite(num)) {
+      return num % 2 === 0 ? 'summer' : 'winter';
+    }
+  }
+  return '';
+}
+
+function adjustLevelForSemester(level, degree, semester) {
+  if (!level || !semester) return level;
+  const match = level.match(/^([A-Za-z]+)(\d+)$/);
+  if (match) {
+    const prefix = match[1];
+    let num = Number(match[2]);
+    if (Number.isFinite(num)) {
+      if (semester === 'winter' && num % 2 === 0) {
+        num = Math.max(1, num - 1);
+      } else if (semester === 'summer' && num % 2 === 1) {
+        num = num + 1;
+      }
+      return `${prefix}${num}`;
+    }
+  }
+  if (degree === 'MA' && level.toLowerCase().includes('minor')) {
+    if (semester === 'winter' && level.toLowerCase().includes('spring')) {
+      return level.replace(/Spring/i, 'Autumn');
+    }
+    if (semester === 'summer' && level.toLowerCase().includes('autumn')) {
+      return level.replace(/Autumn/i, 'Spring');
+    }
+  }
+  return level;
+}
 
 function normalizeScore(value) {
   const num = Number(value);
@@ -181,32 +399,129 @@ function textColorForBgHslLightness(lightness) {
 
 function CoursesList() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(20);
+  const [pageSize] = useState(30);
   const [totalResults, setTotalResults] = useState(0);
   const [showFilters, setShowFilters] = useState(true);
-  const [appliedFilters, setAppliedFilters] = useState(() => createDefaultFilters());
-  const [draftFilters, setDraftFilters] = useState(() => createDefaultFilters());
+  const [programsTree, setProgramsTree] = useState(null);
+  const [appliedFilters, setAppliedFilters] = useState(() => parseFiltersFromSearch(location.search));
+  const [draftFilters, setDraftFilters] = useState(() => parseFiltersFromSearch(location.search));
   const [sortField, setSortField] = useState("");
   const [sortOrder, setSortOrder] = useState("asc");
   const [viewMode, setViewMode] = useState("list"); // 'list' | 'grid'
   const [paretoPref, setParetoPref] = useState({ credits: 'max', workload: 'min' }); // 'max'|'min' for each
 
   useEffect(() => {
+    let cancelled = false;
+    async function loadProgramsTree() {
+      try {
+        const response = await fetch('/programs_tree.json', { cache: 'no-store' });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch programs_tree.json: ${response.status}`);
+        }
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          const snippet = await response.text();
+          throw new Error(`Unexpected content-type: ${contentType}. Body starts with: ${snippet.slice(0, 60)}`);
+        }
+        const json = await response.json();
+        if (!cancelled) {
+          setProgramsTree(json);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setProgramsTree(null);
+          console.warn('Failed to load programs_tree.json', err);
+        }
+      }
+    }
+    loadProgramsTree();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const inferred = inferSemesterFromLevel(appliedFilters.level);
+    const fallback = appliedFilters.semester || '';
+    const finalSemester = inferred || fallback;
+    if (finalSemester && finalSemester !== appliedFilters.semester) {
+      setAppliedFilters((prev) => ({ ...prev, semester: finalSemester }));
+      setDraftFilters((prev) => ({ ...prev, semester: finalSemester }));
+    }
+  }, [appliedFilters.level]);
+
+useEffect(() => {
+    const parsed = parseFiltersFromSearch(location.search);
+    setAppliedFilters((prev) => (filtersAreEqual(prev, parsed) ? prev : parsed));
+  }, [location.search]);
+
+  useEffect(() => {
     setDraftFilters(appliedFilters);
   }, [appliedFilters]);
 
+  useEffect(() => {
+    const params = new URLSearchParams();
+
+    if (appliedFilters.degree) params.set('degree', appliedFilters.degree);
+    if (appliedFilters.level) params.set('level', appliedFilters.level);
+    if (appliedFilters.major) params.set('major', appliedFilters.major);
+    if (appliedFilters.minor) params.set('minor', appliedFilters.minor);
+    if (appliedFilters.type) params.set('type', appliedFilters.type);
+    if (appliedFilters.semester) params.set('semester', appliedFilters.semester);
+    if (appliedFilters.creditsMin !== '') params.set('creditsMin', appliedFilters.creditsMin);
+    if (appliedFilters.creditsMax !== '') params.set('creditsMax', appliedFilters.creditsMax);
+    const setScoreParam = (key, value) => {
+      if (Number(value) > 0) params.set(key, String(value));
+    };
+    setScoreParam('minSkills', appliedFilters.minSkills);
+    setScoreParam('minProduct', appliedFilters.minProduct);
+    setScoreParam('minVenture', appliedFilters.minVenture);
+    setScoreParam('minFoundations', appliedFilters.minFoundations);
+
+    const nextSearch = params.toString();
+    const next = nextSearch ? `?${nextSearch}` : '';
+    if (location.search !== next) {
+      navigate({ pathname: location.pathname, search: next }, { replace: true });
+    }
+  }, [appliedFilters, location.pathname, location.search, navigate]);
+
   const filtersDirty = useMemo(
-    () => !areFiltersEqual(draftFilters, appliedFilters),
-    [draftFilters, appliedFilters],
+    () => draftFilters.query !== appliedFilters.query,
+    [draftFilters.query, appliedFilters.query],
   );
+
+  const degreeOptions = useMemo(
+    () => withValueOption(getDegreeOptions(programsTree), draftFilters.degree),
+    [programsTree, draftFilters.degree],
+  );
+
+  const levelOptions = useMemo(
+    () => withValueOption(getLevelOptions(programsTree, draftFilters.degree), draftFilters.level),
+    [programsTree, draftFilters.degree, draftFilters.level],
+  );
+
+  const majorOptions = useMemo(
+    () => withValueOption(getMajorOptions(programsTree, draftFilters.degree, draftFilters.level), draftFilters.major),
+    [programsTree, draftFilters.degree, draftFilters.level, draftFilters.major],
+  );
+
+  const minorOptions = useMemo(
+    () => withValueOption(getMinorOptions(programsTree, draftFilters.degree, draftFilters.level), draftFilters.minor),
+    [programsTree, draftFilters.degree, draftFilters.level, draftFilters.minor],
+  );
+
+  const levelDisabled = !draftFilters.degree || levelOptions.length === 0;
+  const majorDisabled = !draftFilters.degree || !draftFilters.level || majorOptions.length === 0;
+  const minorDisabled = draftFilters.degree !== 'MA' || !draftFilters.level || minorOptions.length === 0;
 
   const handleApplyFilters = () => {
     setPage(1);
-    setAppliedFilters(() => ({ ...draftFilters }));
+    setAppliedFilters((prev) => ({ ...prev, query: draftFilters.query }));
   };
 
   const handleClearFilters = () => {
@@ -221,8 +536,6 @@ function CoursesList() {
       setLoading(true);
       setError(null);
       try {
-        const sp = new URLSearchParams(location.search);
-        const ap = sp.get('available_programs') || '';
         const params = {
           page,
           pageSize,
@@ -230,9 +543,12 @@ function CoursesList() {
           q: appliedFilters.query || undefined,
           type: appliedFilters.type || undefined,
           semester: appliedFilters.semester || undefined,
+          degree: appliedFilters.degree || undefined,
           creditsMin: appliedFilters.creditsMin !== "" ? Number(appliedFilters.creditsMin) : undefined,
           creditsMax: appliedFilters.creditsMax !== "" ? Number(appliedFilters.creditsMax) : undefined,
-          availablePrograms: ap || undefined,
+          level: appliedFilters.level || undefined,
+          major: appliedFilters.major || undefined,
+          minor: appliedFilters.minor || undefined,
           sortField: sortField || undefined,
           sortOrder: sortField ? sortOrder : undefined,
           minSkills: appliedFilters.minSkills > 0 ? appliedFilters.minSkills : undefined,
@@ -244,6 +560,9 @@ function CoursesList() {
         console.log("API response:", data);
         setCourses(data.items || []);
         setTotalResults(Number(data.total || 0));
+        if (!data.items || data.items.length === 0) {
+          console.debug('No course results returned for current filters');
+        }
       } catch (err) {
         setError(err?.message || "Failed to load courses");
       } finally {
@@ -251,11 +570,11 @@ function CoursesList() {
       }
     }
     fetchData();
-  }, [page, pageSize, appliedFilters, location.search, sortField, sortOrder]);
+  }, [page, pageSize, appliedFilters, sortField, sortOrder]);
 
   useEffect(() => {
     setPage(1);
-  }, [appliedFilters, location.search, sortField, sortOrder]);
+  }, [appliedFilters, sortField, sortOrder]);
 
   return (
     <div style={{ display: "flex", gap: "1rem" }}>
@@ -303,11 +622,149 @@ function CoursesList() {
             Search
           </button>
           <div>
+            <div style={{ fontSize: 12, marginBottom: 4 }}>Degree</div>
+            <select
+              value={draftFilters.degree}
+              onChange={(e) => {
+                const nextDegree = e.target.value;
+                setDraftFilters((prev) => ({
+                  ...prev,
+                  degree: nextDegree,
+                  level: '',
+                  major: '',
+                  minor: '',
+                }));
+                setAppliedFilters((prev) => ({
+                  ...prev,
+                  degree: nextDegree,
+                  level: '',
+                  major: '',
+                  minor: '',
+                }));
+              }}
+              style={{ width: '100%', padding: '6px 8px', border: '1px solid #ccc', borderRadius: 4 }}
+            >
+              <option value="">Any degree</option>
+              {degreeOptions.map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, marginBottom: 4 }}>Level</div>
+            <select
+              value={draftFilters.level}
+              onChange={(e) => {
+                const nextLevel = e.target.value;
+                const inferredSemester = inferSemesterFromLevel(nextLevel);
+                setDraftFilters((prev) => ({
+                  ...prev,
+                  level: nextLevel,
+                  major: '',
+                  minor: '',
+                  semester: inferredSemester || prev.semester,
+                }));
+                setAppliedFilters((prev) => ({
+                  ...prev,
+                  level: nextLevel,
+                  major: '',
+                  minor: '',
+                  semester: inferredSemester || prev.semester,
+                }));
+              }}
+              disabled={levelDisabled}
+              style={{
+                width: '100%',
+                padding: '6px 8px',
+                border: '1px solid #ccc',
+                borderRadius: 4,
+                background: levelDisabled ? '#f3f4f6' : '#fff',
+                color: levelDisabled ? '#9ca3af' : '#111',
+              }}
+            >
+              <option value="">Any level</option>
+              {levelOptions.map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, marginBottom: 4 }}>Major</div>
+            <select
+              value={draftFilters.major}
+              onChange={(e) => {
+                const nextMajor = e.target.value;
+                setDraftFilters((prev) => ({
+                  ...prev,
+                  major: nextMajor,
+                }));
+                setAppliedFilters((prev) => ({
+                  ...prev,
+                  major: nextMajor,
+                }));
+              }}
+              disabled={majorDisabled}
+              style={{
+                width: '100%',
+                padding: '6px 8px',
+                border: '1px solid #ccc',
+                borderRadius: 4,
+                background: majorDisabled ? '#f3f4f6' : '#fff',
+                color: majorDisabled ? '#9ca3af' : '#111',
+              }}
+            >
+              <option value="">Any major</option>
+              {majorOptions.map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+          </div>
+          {draftFilters.degree === 'MA' && (
+            <div>
+              <div style={{ fontSize: 12, marginBottom: 4 }}>Minor</div>
+              <select
+                value={draftFilters.minor}
+                onChange={(e) => {
+                  const nextMinor = e.target.value;
+                  setDraftFilters((prev) => ({
+                    ...prev,
+                    minor: nextMinor,
+                  }));
+                  setAppliedFilters((prev) => ({
+                    ...prev,
+                    minor: nextMinor,
+                  }));
+                }}
+                disabled={minorDisabled}
+                style={{
+                  width: '100%',
+                  padding: '6px 8px',
+                  border: '1px solid #ccc',
+                  borderRadius: 4,
+                  background: minorDisabled ? '#f3f4f6' : '#fff',
+                  color: minorDisabled ? '#9ca3af' : '#111',
+                }}
+              >
+                <option value="">No minor preference</option>
+                {minorOptions.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div>
             <div style={{ fontSize: 12, marginBottom: 4 }}>Type</div>
             <div style={{ display: "flex", gap: 8 }}>
               <button
                 type="button"
-                onClick={() => setDraftFilters((f) => ({ ...f, type: f.type === "optional" ? "" : "optional" }))}
+                onClick={() => {
+                  setDraftFilters((prev) => {
+                    const nextType = prev.type === "optional" ? "" : "optional";
+                    const next = { ...prev, type: nextType };
+                    setAppliedFilters((applied) => ({ ...applied, type: nextType }));
+                    return next;
+                  });
+                }}
                 style={{
                   padding: "6px 10px",
                   border: "1px solid #ccc",
@@ -319,7 +776,14 @@ function CoursesList() {
               </button>
               <button
                 type="button"
-                onClick={() => setDraftFilters((f) => ({ ...f, type: f.type === "mandatory" ? "" : "mandatory" }))}
+                onClick={() => {
+                  setDraftFilters((prev) => {
+                    const nextType = prev.type === "mandatory" ? "" : "mandatory";
+                    const next = { ...prev, type: nextType };
+                    setAppliedFilters((applied) => ({ ...applied, type: nextType }));
+                    return next;
+                  });
+                }}
                 style={{
                   padding: "6px 10px",
                   border: "1px solid #ccc",
@@ -336,7 +800,18 @@ function CoursesList() {
             <div style={{ display: "flex", gap: 8 }}>
               <button
                 type="button"
-                onClick={() => setDraftFilters((f) => ({ ...f, semester: f.semester === "winter" ? "" : "winter" }))}
+                onClick={() => {
+                  setDraftFilters((prev) => {
+                    const nextSemester = prev.semester === "winter" ? "" : "winter";
+                    let nextLevel = prev.level;
+                    if (nextSemester) {
+                      nextLevel = adjustLevelForSemester(prev.level, prev.degree, nextSemester);
+                    }
+                    const next = { ...prev, semester: nextSemester, level: nextLevel };
+                    setAppliedFilters((applied) => ({ ...applied, semester: nextSemester, level: nextLevel }));
+                    return next;
+                  });
+                }}
                 style={{
                   padding: "6px 10px",
                   border: "1px solid #ccc",
@@ -348,7 +823,18 @@ function CoursesList() {
               </button>
               <button
                 type="button"
-                onClick={() => setDraftFilters((f) => ({ ...f, semester: f.semester === "summer" ? "" : "summer" }))}
+                onClick={() => {
+                  setDraftFilters((prev) => {
+                    const nextSemester = prev.semester === "summer" ? "" : "summer";
+                    let nextLevel = prev.level;
+                    if (nextSemester) {
+                      nextLevel = adjustLevelForSemester(prev.level, prev.degree, nextSemester);
+                    }
+                    const next = { ...prev, semester: nextSemester, level: nextLevel };
+                    setAppliedFilters((applied) => ({ ...applied, semester: nextSemester, level: nextLevel }));
+                    return next;
+                  });
+                }}
                 style={{
                   padding: "6px 10px",
                   border: "1px solid #ccc",
@@ -365,13 +851,21 @@ function CoursesList() {
               type="number"
               placeholder="Min credits"
               value={draftFilters.creditsMin}
-              onChange={(e) => setDraftFilters((f) => ({ ...f, creditsMin: e.target.value }))}
+              onChange={(e) => {
+                const { value } = e.target;
+                setDraftFilters((prev) => ({ ...prev, creditsMin: value }));
+                setAppliedFilters((prev) => ({ ...prev, creditsMin: value }));
+              }}
             />
             <input
               type="number"
               placeholder="Max credits"
               value={draftFilters.creditsMax}
-              onChange={(e) => setDraftFilters((f) => ({ ...f, creditsMax: e.target.value }))}
+              onChange={(e) => {
+                const { value } = e.target;
+                setDraftFilters((prev) => ({ ...prev, creditsMax: value }));
+                setAppliedFilters((prev) => ({ ...prev, creditsMax: value }));
+              }}
             />
           </div>
           <div style={{ display: 'grid', gap: 10 }}>
@@ -387,7 +881,11 @@ function CoursesList() {
                   max="1"
                   step="0.01"
                   value={draftFilters[key]}
-                  onChange={(e) => setDraftFilters((f) => ({ ...f, [key]: Number(e.target.value) }))}
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
+                    setDraftFilters((prev) => ({ ...prev, [key]: value }));
+                    setAppliedFilters((prev) => ({ ...prev, [key]: value }));
+                  }}
                 />
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#888' }}>
                   <span>0</span>
@@ -413,6 +911,14 @@ function CoursesList() {
             <button onClick={() => setShowFilters(true)}>Show filters</button>
           )}
         </div>
+        {error && (
+          <div style={{ margin: '8px 0', padding: '8px 12px', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 6, color: '#991b1b' }}>
+            {error}
+          </div>
+        )}
+        {loading && (
+          <div style={{ margin: '8px 0', fontSize: 12, color: '#4b5563' }}>Loading courses…</div>
+        )}
         <div style={{ display: "flex", gap: 8, alignItems: "center", margin: "8px 0", flexWrap: 'wrap' }}>
           {viewMode === 'list' ? (
             <>
@@ -540,6 +1046,8 @@ function CoursesList() {
                       <small style={{ marginLeft: 8 }}>({c.course_code})</small>
                     )}
                   </h3>
+                  {renderProgramTags(c.available_programs)}
+                  {renderLevelTags(c.available_levels)}
                   <ul style={{ listStyle: 'none', paddingLeft: 0, margin: 0 }}>
                     {c.prof_name && (
                       <li><strong>Professor:</strong> {c.prof_name}</li>
@@ -631,6 +1139,8 @@ function CoursesList() {
                       {c.course_code && (
                         <div style={{ fontSize: 12, opacity: 0.85, marginTop: 2 }}>{c.course_code}</div>
                       )}
+                      {renderProgramTags(c.available_programs)}
+                      {renderLevelTags(c.available_levels)}
                       <div style={{ marginTop: 8, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: 12 }}>
                         {Number.isFinite(c.credits) || c.credits ? (
                           <div><strong>ECTS:</strong> {c.credits}</div>
