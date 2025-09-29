@@ -205,6 +205,7 @@ def parse_list_field(value: str) -> List[str]:
 
 PROGRAM_LABEL_RE = re.compile(r"^\s*([A-Za-z]+)(\d+)\s+(.*)$")
 MINOR_LABEL_RE = re.compile(r"^\s*Minor\s+(Autumn|Spring)\s+Semester\s+(.*)$", re.IGNORECASE)
+PROJECT_LABEL_RE = re.compile(r"^\s*MA\s+Project\s+(Autumn|Spring)\s+(.*)$", re.IGNORECASE)
 EDOC_LABEL_RE = re.compile(r"^\s*(edoc|phd)\s+(.*)$", re.IGNORECASE)
 
 
@@ -231,6 +232,15 @@ def parse_program_label(label: str) -> Tuple[str, int | None, str, str] | None:
             if not program:
                 return None
             level_label = f"Minor {season.capitalize()} Semester"
+            return 'MA', None, level_label, program
+
+        project_match = PROJECT_LABEL_RE.match(label)
+        if project_match:
+            season, program_name = project_match.groups()
+            program = program_name.strip()
+            if not program:
+                return None
+            level_label = f"MA Project {season.capitalize()}"
             return 'MA', None, level_label, program
 
         edoc_match = EDOC_LABEL_RE.match(label)
@@ -274,11 +284,24 @@ def load_scores(path: Path) -> Dict[str, Dict[str, Any]]:
             row_id = row.get("row_id")
             if not row_id:
                 continue
+            embeddings_raw = row.get("embeddings") or row.get("embedding")
+            embeddings_vec = None
+            if embeddings_raw:
+                try:
+                    parsed = json.loads(embeddings_raw)
+                    if isinstance(parsed, list):
+                        try:
+                            embeddings_vec = [float(x) for x in parsed]
+                        except (TypeError, ValueError):
+                            embeddings_vec = None
+                except json.JSONDecodeError:
+                    embeddings_vec = None
             scores[row_id] = {
                 "score_skills_sigmoid": parse_float(row.get("score_skills_sigmoid")),
                 "score_product_sigmoid": parse_float(row.get("score_product_sigmoid")),
                 "score_venture_sigmoid": parse_float(row.get("score_venture_sigmoid")),
                 "score_foundations_sigmoid": parse_float(row.get("score_foundations_sigmoid")),
+                "embeddings": embeddings_vec,
             }
     return scores
 
@@ -300,6 +323,7 @@ def build_payloads(
     Dict[str, set[str]],        # keywords per course_code (for tag creation)
     set[Tuple[str, str]],       # offering_keyword_links: (row_id, keyword)
     set[Tuple[str, str, str, int | None, str]],  # offering_program_links: (row_id, degree, level_label, semester, program_name)
+    Dict[str, Dict[str, Any]],  # embeddings per course_code
     set[str],                   # unparsed program labels (for logging)
 ]:
     if not courses_csv.exists():
@@ -314,6 +338,7 @@ def build_payloads(
     keywords_map: Dict[str, set[str]] = defaultdict(set)
     keyword_tag_links: set[Tuple[str, str]] = set()
     offering_program_links: set[Tuple[str, str, str, int | None, str]] = set()
+    embeddings_map: Dict[str, Dict[str, Any]] = {}
     unparsed_program_labels: set[str] = set()
 
     with courses_csv.open(newline="", encoding="utf-8") as handle:
@@ -356,13 +381,20 @@ def build_payloads(
                     "section": row.get("section", "").strip() or "",
                     "type": row.get("type", "mandatory").strip() or "mandatory",
                     "prof_name": row.get("prof_name", "").strip() or None,
-                    **{k: score.get(k) for k in [
-                        "score_skills_sigmoid",
-                        "score_product_sigmoid",
-                        "score_venture_sigmoid",
-                        "score_foundations_sigmoid",
-                    ]},
+                    "score_skills_sigmoid": score.get("score_skills_sigmoid"),
+                    "score_product_sigmoid": score.get("score_product_sigmoid"),
+                    "score_venture_sigmoid": score.get("score_venture_sigmoid"),
+                    "score_foundations_sigmoid": score.get("score_foundations_sigmoid"),
+                    "embeddings": score.get("embeddings"),
                 })
+                emb = score.get("embeddings")
+                if emb and course_code not in embeddings_map:
+                    preview = (row.get("text") or "").strip()
+                    embeddings_map[course_code] = {
+                        "embedding": emb,
+                        "preview": preview[:1000] if preview else None,
+                        "row_id": row_id,
+                    }
 
             keywords = parse_list_field(row.get("keywords", ""))
             for kw in keywords:
@@ -385,6 +417,7 @@ def build_payloads(
         keywords_map,
         keyword_tag_links,
         offering_program_links,
+        embeddings_map,
         unparsed_program_labels,
     )
 
@@ -403,6 +436,7 @@ def main() -> None:
         keywords_map,
         keyword_tag_links,
         offering_program_links,
+        embeddings_map,
         unparsed_program_labels,
     ) = build_payloads(COURSES_CSV, SCORES_CSV)
 
@@ -489,6 +523,23 @@ def main() -> None:
     if offering_tag_rows:
         client.insert_ignore("offering_tags", offering_tag_rows)
 
+    embedding_rows = []
+    for course_code, data in embeddings_map.items():
+        course_id = course_ids.get(course_code)
+        embedding_vec = data.get("embedding")
+        if not course_id or embedding_vec is None:
+            continue
+        preview_text = data.get("preview")
+        source_url = courses_map.get(course_code, {}).get("course_url")
+        embedding_rows.append({
+            "course_id": course_id,
+            "embedding": embedding_vec,
+            "preview": preview_text,
+            "source_url": source_url,
+        })
+    if embedding_rows:
+        client.upsert("course_embeddings", embedding_rows, on_conflict="course_id")
+
     # Summary
     # 5. Structured program / level data
     program_rows = [
@@ -534,20 +585,23 @@ def main() -> None:
 
     kw_count = len(keyword_tag_links)
     structured_count = len(offering_program_links)
+    embedding_count = len(embedding_rows)
     print(
         f"Linked offering↔tags (keywords): {kw_count} (rows inserted may be fewer due to dedupe)"
     )
     print(
         f"Linked offering↔program levels: {structured_count} (rows inserted may be fewer due to dedupe)"
     )
+    print(
+        f"Upserted course embeddings: {embedding_count}"
+    )
 
     if unparsed_program_labels:
-        samples = sorted(unparsed_program_labels)[:5]
-        sample_text = ", ".join(samples)
         print(
-            f"Warning: skipped {len(unparsed_program_labels)} available_program labels that could not be parsed. "
-            f"Examples: {sample_text}"
+            f"Warning: skipped {len(unparsed_program_labels)} available_program labels that could not be parsed."
         )
+        for label in sorted(unparsed_program_labels):
+            print(f"  - {label}")
 
     print("Import completed")
 

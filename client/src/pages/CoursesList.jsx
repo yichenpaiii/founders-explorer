@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getCourses } from "../api/courses_api";  // adjust path if needed
+import {
+  MA_PROJECT_LEVELS,
+  inferSemesterFromLevel,
+  isMAProjectLevel,
+  shouldSkipMinorQuestion,
+} from "../utils/levels";
 
 const GRID_MIN_WIDTH = 220; // px
 
@@ -132,6 +138,9 @@ function parseFiltersFromSearch(search) {
   if (base.level && !base.semester) {
     base.semester = inferSemesterFromLevel(base.level) || '';
   }
+  if (base.level.toLowerCase().includes('project')) {
+    base.minor = '';
+  }
   const creditsMinParam = sp.get('creditsMin');
   if (creditsMinParam !== null) base.creditsMin = creditsMinParam;
   const creditsMaxParam = sp.get('creditsMax');
@@ -176,9 +185,20 @@ function getDegreeOptions(tree) {
 
 function getLevelOptions(tree, degree) {
   if (!tree || !degree || !tree[degree]) return [];
-  return Object.keys(tree[degree] || {})
+  const keys = Object.keys(tree[degree] || {});
+  const base = keys
     .filter((lvl) => /^[A-Za-z]+\d+$/i.test(lvl))
     .sort();
+  if (degree !== 'MA') {
+    return base;
+  }
+  const result = base.slice();
+  for (const level of MA_PROJECT_LEVELS) {
+    if (!result.includes(level)) {
+      result.push(level);
+    }
+  }
+  return result;
 }
 
 function getMajorOptions(tree, degree, level) {
@@ -200,6 +220,7 @@ function withValueOption(options, value) {
 
 function getMinorOptions(tree, degree, level) {
   if (!tree || degree !== 'MA') return [];
+  if (isMAProjectLevel(level)) return [];
   const source = tree.MA || {};
   const autumn = Array.isArray(source['Minor Autumn Semester']) ? source['Minor Autumn Semester'] : [];
   const spring = Array.isArray(source['Minor Spring Semester']) ? source['Minor Spring Semester'] : [];
@@ -216,21 +237,6 @@ function getMinorOptions(tree, degree, level) {
   if (level.toLowerCase().includes('autumn')) return autumn.slice().sort();
   if (level.toLowerCase().includes('spring')) return spring.slice().sort();
   return Array.from(new Set([...autumn, ...spring])).sort();
-}
-
-function inferSemesterFromLevel(level) {
-  if (!level) return '';
-  const lower = level.toLowerCase();
-  if (lower.includes('spring')) return 'summer';
-  if (lower.includes('autumn')) return 'winter';
-  const match = level.match(/(\d+)/);
-  if (match) {
-    const num = Number(match[1]);
-    if (Number.isFinite(num)) {
-      return num % 2 === 0 ? 'summer' : 'winter';
-    }
-  }
-  return '';
 }
 
 function adjustLevelForSemester(level, degree, semester) {
@@ -517,7 +523,8 @@ useEffect(() => {
 
   const levelDisabled = !draftFilters.degree || levelOptions.length === 0;
   const majorDisabled = !draftFilters.degree || !draftFilters.level || majorOptions.length === 0;
-  const minorDisabled = draftFilters.degree !== 'MA' || !draftFilters.level || minorOptions.length === 0;
+  const skipMinorFilters = shouldSkipMinorQuestion(draftFilters.degree, draftFilters.level);
+  const minorDisabled = skipMinorFilters || !draftFilters.level || minorOptions.length === 0;
 
   const handleApplyFilters = () => {
     setPage(1);
@@ -719,7 +726,7 @@ useEffect(() => {
               ))}
             </select>
           </div>
-          {draftFilters.degree === 'MA' && (
+          {!skipMinorFilters && (
             <div>
               <div style={{ fontSize: 12, marginBottom: 4 }}>Minor</div>
               <select

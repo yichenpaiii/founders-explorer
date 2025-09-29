@@ -1,6 +1,12 @@
 // NOTE: Place programs_tree.json under client/public/ so it is served at /programs_tree.json
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+    MA_PROJECT_LEVELS,
+    inferMinorSeasonLabel,
+    inferSemesterFromLevel,
+    shouldSkipMinorQuestion,
+} from '../utils/levels';
 
 function Questionnaire() {
     const navigate = useNavigate();
@@ -37,18 +43,19 @@ function Questionnaire() {
     }, []);
 
     // Submit handler
-    const handleSubmit = () => {
-        const degree = (formData.program || '').trim();
-        const level = (formData.semester || '').trim();
-        const major = (formData.major || '').trim();
-
-        const minor = (formData.minor || '').trim();
+    const handleSubmit = (data = formData) => {
+        const degree = (data.program || '').trim();
+        const level = (data.semester || '').trim();
+        const major = (data.major || '').trim();
+        const minor = (data.minor || '').trim();
+        const inferredSemester = inferSemesterFromLevel(level);
 
         const params = new URLSearchParams();
         if (degree) params.set('degree', degree);
         if (level) params.set('level', level);
         if (major) params.set('major', major);
         if (degree === 'MA' && minor) params.set('minor', minor);
+        if (inferredSemester) params.set('semester', inferredSemester);
 
         const qs = params.toString();
         navigate(qs ? `/courses?${qs}` : '/courses');
@@ -75,8 +82,12 @@ function Questionnaire() {
                     if (p === 'PhD') return [];
                     const keys = Object.keys(tree[p] || {});
                     if (p === 'MA') {
-                        const semesters = keys.filter(k => /^MA\d+$/i.test(k));
-                        return semesters.length ? [...semesters, 'Other'] : ['Other'];
+                        const numeric = keys.filter(k => /^MA\d+$/i.test(k)).sort();
+                        const result = numeric.slice();
+                        for (const label of MA_PROJECT_LEVELS) {
+                            if (!result.includes(label)) result.push(label);
+                        }
+                        return result.length ? [...result, 'Other'] : ['Other'];
                     }
                     if (p === 'BA') {
                         const semesters = keys.filter(k => /^BA\d+$/i.test(k));
@@ -104,19 +115,15 @@ function Questionnaire() {
             {
                 key: 'minor',
                 get: () => {
-                    if (data.program !== 'MA') return [];
+                    if (shouldSkipMinorQuestion(data.program, data.semester)) return [];
                     const sem = data.semester || '';
-                    const semLower = sem.toLowerCase();
                     const autumn = Array.isArray(tree.MA?.['Minor Autumn Semester']) ? tree.MA['Minor Autumn Semester'] : [];
                     const spring = Array.isArray(tree.MA?.['Minor Spring Semester']) ? tree.MA['Minor Spring Semester'] : [];
+                    const season = inferMinorSeasonLabel(data.program, sem);
                     let list = [];
-                    const m = sem.match(/^MA(\d+)$/i);
-                    if (m) {
-                        const n = parseInt(m[1], 10);
-                        list = (n % 2 === 1) ? autumn : spring;
-                    } else if (semLower.includes('project autumn semester') || semLower.includes('autumn')) {
+                    if (season === 'Minor Autumn Semester') {
                         list = autumn;
-                    } else if (semLower.includes('project spring semester') || semLower.includes('spring')) {
+                    } else if (season === 'Minor Spring Semester') {
                         list = spring;
                     } else {
                         const set = new Set([...autumn, ...spring]);
@@ -148,8 +155,12 @@ function Questionnaire() {
                 if (p === 'PhD') return [];
                 const keys = Object.keys(programsTree[p] || {});
                 if (p === 'MA') {
-                    const semesters = keys.filter(k => /^MA\d+$/i.test(k));
-                    return semesters.length ? [...semesters, 'Other'] : ['Other'];
+                    const numeric = keys.filter(k => /^MA\d+$/i.test(k)).sort();
+                    const result = numeric.slice();
+                    for (const label of MA_PROJECT_LEVELS) {
+                        if (!result.includes(label)) result.push(label);
+                    }
+                    return result.length ? [...result, 'Other'] : ['Other'];
                 }
                 if (p === 'BA') {
                     const semesters = keys.filter(k => /^BA\d+$/i.test(k));
@@ -181,19 +192,15 @@ function Questionnaire() {
             question: 'Which minor?',
             getOptions: (formData) => {
                 if (!programsTree) return [];
-                if (formData.program !== 'MA') return [];
+                if (shouldSkipMinorQuestion(formData.program, formData.semester)) return [];
                 const sem = formData.semester || '';
-                const semLower = sem.toLowerCase();
                 const autumn = Array.isArray(programsTree.MA?.['Minor Autumn Semester']) ? programsTree.MA['Minor Autumn Semester'] : [];
                 const spring = Array.isArray(programsTree.MA?.['Minor Spring Semester']) ? programsTree.MA['Minor Spring Semester'] : [];
+                const season = inferMinorSeasonLabel(formData.program, sem);
                 let list = [];
-                const m = sem.match(/^MA(\d+)$/i);
-                if (m) {
-                    const n = parseInt(m[1], 10);
-                    list = (n % 2 === 1) ? autumn : spring;
-                } else if (semLower.includes('project autumn semester') || semLower.includes('autumn')) {
+                if (season === 'Minor Autumn Semester') {
                     list = autumn;
-                } else if (semLower.includes('project spring semester') || semLower.includes('spring')) {
+                } else if (season === 'Minor Spring Semester') {
                     list = spring;
                 } else {
                     const set = new Set([...autumn, ...spring]);
@@ -206,11 +213,31 @@ function Questionnaire() {
 
     const handleAnswer = (value) => {
         const key = allQuestions[currentStep].key;
-        setFormData(prev => ({ ...prev, [key]: value }));
-        if (currentStep < allQuestions.length - 1) {
-            setCurrentStep(prev => prev + 1);
+        const nextData = { ...formData, [key]: value };
+
+        if (key === 'program' && value !== 'MA') {
+            nextData.minor = '';
+        }
+        if (key === 'semester' && shouldSkipMinorQuestion(nextData.program, nextData.semester)) {
+            nextData.minor = '';
+        }
+
+        setFormData(nextData);
+
+        let nextStep = currentStep + 1;
+        while (nextStep < allQuestions.length) {
+            const nextKey = allQuestions[nextStep].key;
+            if (nextKey === 'minor' && shouldSkipMinorQuestion(nextData.program, nextData.semester)) {
+                nextStep += 1;
+                continue;
+            }
+            break;
+        }
+
+        if (nextStep < allQuestions.length) {
+            setCurrentStep(nextStep);
         } else {
-            handleSubmit();
+            handleSubmit(nextData);
         }
     };
 

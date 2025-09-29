@@ -1,6 +1,7 @@
 /* global __SUPABASE_DEV_VARS__ */
 
 import { createClient } from '@supabase/supabase-js';
+import { inferMinorSeasonLabel } from '../utils/levels';
 
 const VIEW = 'courses_search_view';
 
@@ -141,9 +142,18 @@ export async function getCourses(options = {}) {
 
   query = query.range(offset, rangeEnd);
 
-  const { data, count, error } = await query;
+  const { data, count, error, status } = await query;
 
   if (error) {
+    if (status === 404) {
+      console.warn('Supabase returned 404, treating as empty result set', error);
+      return {
+        items: [],
+        total: 0,
+        page: resolvedPage,
+        pageSize: resolvedPageSize,
+      };
+    }
     throw new Error(`Supabase request failed: ${error.message}`);
   }
 
@@ -208,16 +218,15 @@ function buildSearchClause(rawValue) {
 
   if (!sanitized) return '';
 
-  const pattern = `%${sanitized}%`;
+  const wildcard = sanitized.replace(/\s+/g, ' ');
+  const pattern = `*${wildcard}*`;
   const filters = [
     `course_name.ilike.${pattern}`,
     `course_code.ilike.${pattern}`,
     `prof_name.ilike.${pattern}`,
     `prof_names.ilike.${pattern}`,
     `exam_form.ilike.${pattern}`,
-    `workload.ilike.${pattern}`,
-    `type.ilike.${pattern}`,
-    `offering_types.ilike.${pattern}`,
+    // Avoid ilike on enum/array columns (type/offering_types) to prevent Postgres 42883 errors
   ];
 
   return filters.join(',');
@@ -254,22 +263,6 @@ function parseListFilter(value) {
   }
 
   return [];
-}
-
-function inferMinorSeasonLabel(degree, level) {
-  if (degree !== 'MA') return '';
-  if (!level) return '';
-  const match = level.match(/MA(\d+)/i);
-  if (match) {
-    const idx = Number(match[1]);
-    if (Number.isFinite(idx)) {
-      return idx % 2 === 1 ? 'Minor Autumn Semester' : 'Minor Spring Semester';
-    }
-  }
-  const lower = level.toLowerCase();
-  if (lower.includes('autumn')) return 'Minor Autumn Semester';
-  if (lower.includes('spring')) return 'Minor Spring Semester';
-  return '';
 }
 
 function mapSortField(field) {
