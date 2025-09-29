@@ -38,6 +38,39 @@ When the Vite dev server starts it prints the initial Supabase response to the t
 
 Set `SUPABASE_URL` and `SUPABASE_ANON_KEY` as environment variables in whatever platform serves the built assets. The Vite build injects them for the client bundle at compile time.
 
+### User score submissions (no login)
+
+The Courses list shows 4 interactive sliders (Skills, Product, Venture, Foundations) per course. Users can adjust and click Submit to store their values in Supabase without authentication.
+
+Create a table and permissive RLS policy:
+
+```sql
+create table if not exists public.course_score_submissions (
+  id bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  course_id text null,
+  course_code text null,
+  score_skills numeric null,
+  score_product numeric null,
+  score_venture numeric null,
+  score_foundations numeric null,
+  user_agent text null
+);
+
+alter table public.course_score_submissions enable row level security;
+
+-- WARNING: this allows anyone with the anon key to insert.
+create policy anon_can_insert on public.course_score_submissions
+  for insert
+  to anon
+  with check (true);
+```
+
+Notes:
+- The client uses `public.course_score_submissions` by default.
+- Insert requires `SUPABASE_URL` and `SUPABASE_ANON_KEY` to be configured (same as reads).
+- You can later export rows for analysis via Supabase.
+
 ### Supabase view expected
 
 The client reads from the Supabase PostgREST view `courses_search_view` and expects these columns:

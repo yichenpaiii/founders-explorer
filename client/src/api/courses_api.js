@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { inferMinorSeasonLabel } from '../utils/levels';
 
 const VIEW = 'courses_search_view';
+const SUBMISSIONS_TABLE = 'course_score_submissions';
 
 let cachedClient = null;
 let cachedClientKey = '';
@@ -204,6 +205,42 @@ function resolveSupabaseConfig() {
   }
 
   return { supabaseUrl, supabaseAnonKey };
+}
+
+/**
+ * Insert a user-submitted score record for a course.
+ * Anonymous insert; ensure RLS allows anon INSERT on the table.
+ */
+export async function submitCourseAspectScores(payload) {
+  const { supabaseUrl, supabaseAnonKey } = resolveSupabaseConfig();
+  const supabase = ensureSupabaseClient(supabaseUrl, supabaseAnonKey);
+
+  const record = normalizeSubmissionPayload(payload);
+  const { data, error } = await supabase.from(SUBMISSIONS_TABLE).insert([record]).select();
+  if (error) {
+    throw new Error(`Supabase insert failed: ${error.message}`);
+  }
+  return Array.isArray(data) && data.length ? data[0] : null;
+}
+
+function normalizeSubmissionPayload(p) {
+  const toNum = (v) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return null;
+    if (n < 0) return 0;
+    if (n > 1) return 1;
+    return n;
+  };
+  return {
+    course_id: p?.courseId ?? null,
+    course_code: typeof p?.courseCode === 'string' ? p.courseCode : null,
+    score_skills: toNum(p?.scoreSkills),
+    score_product: toNum(p?.scoreProduct),
+    score_venture: toNum(p?.scoreVenture),
+    score_foundations: toNum(p?.scoreFoundations),
+    // Optional lightweight context for later analysis
+    user_agent: typeof navigator !== 'undefined' ? (navigator.userAgent || null) : null,
+  };
 }
 
 function buildSearchClause(rawValue) {

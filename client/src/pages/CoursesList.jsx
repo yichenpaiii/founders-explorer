@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+// src/pages/CoursesList.jsx
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { getCourses } from "../api/courses_api";  // adjust path if needed
+import { getCourses } from "../api/courses_api";
+import submitCourseRating from "../api/submit_rating";
 import {
   MA_PROJECT_LEVELS,
   inferSemesterFromLevel,
@@ -28,6 +30,16 @@ const TAG_COLORS = [
   '#2563eb', '#059669', '#f97316', '#a855f7', '#ec4899',
   '#14b8a6', '#facc15', '#ef4444', '#6366f1', '#10b981',
 ];
+
+function courseKeyOf(course, fallbackIndex = 0) {
+  return (
+    course?.id ??
+    course?.course_code ??
+    course?.url ??
+    (course?.course_name ? `name:${course.course_name}` : null) ??
+    `course-${fallbackIndex}`
+  );
+}
 
 function colorForTag(tag) {
   if (!tag) return '#4b5563';
@@ -273,54 +285,198 @@ function normalizeScore(value) {
   return num;
 }
 
-function ScoreSummary({ course, theme = 'light' }) {
-  const entries = SCORE_FIELDS.map(({ key, label }) => {
-    const value = normalizeScore(course?.[key]);
-    return { label, value };
-  });
+function ScoreSummary({
+  course,
+  theme = 'light',
+  layout = 'list',
+  submissionState,
+  onSubmissionStateChange,
+  savedValues,
+  onValuesChange,
+}) {
+  const base = {
+    skills: normalizeScore(course?.max_score_skills_sigmoid),
+    product: normalizeScore(course?.max_score_product_sigmoid),
+    venture: normalizeScore(course?.max_score_venture_sigmoid),
+    foundations: normalizeScore(course?.max_score_foundations_sigmoid),
+  };
+
+  const defaultValues = useMemo(() => ({
+    skills: base.skills ?? 0,
+    product: base.product ?? 0,
+    venture: base.venture ?? 0,
+    foundations: base.foundations ?? 0,
+  }), [base.skills, base.product, base.venture, base.foundations]);
+
+  const [values, setValues] = useState(savedValues ?? defaultValues);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(Boolean(submissionState?.submitted));
+  const [submitError, setSubmitError] = useState('');
+
+  useEffect(() => {
+    setSubmitted(Boolean(submissionState?.submitted));
+  }, [submissionState]);
+
+  useEffect(() => {
+    const nextValues = savedValues ?? defaultValues;
+    setValues(nextValues);
+    if (!savedValues && typeof onValuesChange === 'function') {
+      onValuesChange(nextValues);
+    }
+    setSubmitError('');
+  }, [course?.id, course?.course_code, defaultValues, savedValues]);
+
+  const rows = [
+    { key: 'skills', label: 'Skills', color: '#2563eb', base: base.skills },
+    { key: 'product', label: 'Product', color: '#10b981', base: base.product },
+    { key: 'venture', label: 'Venture', color: '#f59e0b', base: base.venture },
+    { key: 'foundations', label: 'Foundations', color: '#a855f7', base: base.foundations },
+  ];
 
   const isDark = theme === 'dark';
-  const trackColor = isDark ? 'rgba(255,255,255,0.25)' : '#e5e7eb';
-  const fillColor = isDark ? 'rgba(255,255,255,0.85)' : '#2563eb';
   const labelColor = isDark ? 'rgba(255,255,255,0.8)' : '#374151';
 
+  const broadcastState = (state) => {
+    if (typeof onSubmissionStateChange === 'function') {
+      onSubmissionStateChange(state);
+    }
+  };
+
+  const handleValueChange = (key, nextValue) => {
+    setValues((prev) => {
+      const updated = { ...prev, [key]: nextValue };
+      if (typeof onValuesChange === 'function') {
+        onValuesChange(updated);
+      }
+      return updated;
+    });
+    if (submitted) {
+      setSubmitted(false);
+      broadcastState(null);
+    }
+    if (submitError) {
+      setSubmitError('');
+    }
+  };
+
+  async function handleSubmit() {
+    if (submitting) return;
+    setSubmitting(true);
+    setSubmitError('');
+    try {
+      await submitCourseRating({
+        course_id: course?.id ?? null,
+        course_code: course?.course_code ?? null,
+        score_skills: Math.max(0, Math.min(1, values.skills ?? 0)),
+        score_product: Math.max(0, Math.min(1, values.product ?? 0)),
+        score_venture: Math.max(0, Math.min(1, values.venture ?? 0)),
+        score_foundations: Math.max(0, Math.min(1, values.foundations ?? 0)),
+      });
+      setSubmitted(true);
+      broadcastState({ submitted: true, timestamp: Date.now() });
+    } catch (err) {
+      setSubmitError(err?.message || 'Submit failed');
+      broadcastState(null);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  // status button color (right side)
+  const status = submitError ? 'error' : (submitting ? 'submitting' : (submitted ? 'success' : 'idle'));
+  const statusStyles = {
+    idle:   { bg: '#f3f4f6', border: '#d1d5db' },  // gray-100, gray-300
+    submitting: { bg: '#fde68a', border: '#f59e0b' }, // amber-200/500
+    success: { bg: '#dcfce7', border: '#10b981' },   // green-100/500
+    error:   { bg: '#fee2e2', border: '#ef4444' },   // red-100/500
+  }[status];
+
+  // Layout helpers
+  const isListLayout = layout === 'list';
+  const gridColumns = isListLayout ? 4 : 2; // list: 4 in one row; grid: 2x2
+
   return (
-    <div
-      style={{
-        marginTop: 10,
+    <div style={{
+      marginTop: 10,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      flexWrap: 'wrap',
+    }}>
+      <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
-        gap: 8,
-      }}
-    >
-      {entries.map(({ label, value }) => (
-        <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: 11, color: labelColor }}>{label}</span>
-          <div
-            style={{
-              height: 6,
-              borderRadius: 9999,
-              background: trackColor,
-              overflow: 'hidden',
-            }}
-          >
+        gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))`,
+        gridAutoRows: 'minmax(40px, auto)',
+        gap: 6,
+        padding: 0,
+        border: 'none',
+        borderRadius: 0,
+        width: '100%',
+        flex: 1,
+        minWidth: 0
+      }}>
+        {rows.map((r) => (
+          <div key={r.key} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <div style={{ fontSize: 10, color: labelColor, fontWeight: 600, opacity: 0.85 }}>{r.label}</div>
             <div
-              style={{
-                width: value != null ? `${Math.round(value * 100)}%` : '0%',
-                height: '100%',
-                background: fillColor,
-                transition: 'width 0.2s ease',
-              }}
-            />
+              title={`You: ${values[r.key].toFixed(2)} • Data: ${r.base != null ? r.base.toFixed(2) : '–'}`}
+              aria-label={`${r.label} slider`}
+              style={{ position: 'relative', height: 16 }}
+            >
+              <div
+                aria-hidden
+                style={{
+                  position: 'absolute', left: 0, right: 0, top: '50%', transform: 'translateY(-50%)',
+                  height: 4, borderRadius: 9999, background: '#e5e7eb', overflow: 'hidden', zIndex: 1,
+                }}
+              >
+                <div style={{ width: r.base != null ? `${Math.round(r.base * 100)}%` : '0%', height: '100%', background: '#9ca3af' }} />
+              </div>
+              <div
+                aria-hidden
+                style={{
+                  position: 'absolute', left: 0, right: 0, top: '50%', transform: 'translateY(-50%)',
+                  height: 4, borderRadius: 9999, overflow: 'hidden', zIndex: 2, pointerEvents: 'none',
+                }}
+              >
+                <div style={{ width: `${Math.round(values[r.key] * 100)}%`, height: '100%', background: r.color, opacity: 1 }} />
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={values[r.key]}
+                onChange={(e) => handleValueChange(r.key, Number(e.target.value))}
+                className="score-slider"
+                style={{
+                  position: 'absolute', left: 0, right: 0, top: 0, bottom: 0,
+                  width: '100%', background: 'transparent', color: r.color, zIndex: 3,
+                }}
+              />
+            </div>
           </div>
-          <span style={{ fontSize: 12, fontWeight: 600 }}>
-            {value != null ? value.toFixed(2) : '–'}
-          </span>
-        </div>
-      ))}
+        ))}
+      </div>
+      <button
+        type="button"
+        className="score-submit-btn"
+        onClick={handleSubmit}
+        disabled={submitting}
+        aria-label="Submit score values"
+        title={submitError ? `Submit failed: ${submitError}` : (submitted ? 'Saved' : (submitting ? 'Submitting…' : 'Submit'))}
+        style={{
+          width: 22, height: 22, borderRadius: 9999,
+          background: statusStyles.bg,
+          border: `1px solid ${statusStyles.border}`,
+          cursor: submitting ? 'not-allowed' : 'pointer',
+        }}
+      />
     </div>
   );
 }
+
+// InteractiveScoreSliders was merged into ScoreSummary to avoid duplicate sliders
 
 // Pareto helpers: maximize credits, minimize workload
 function parseNumberLike(value) {
@@ -420,6 +576,32 @@ function CoursesList() {
   const [sortOrder, setSortOrder] = useState("asc");
   const [viewMode, setViewMode] = useState("list"); // 'list' | 'grid'
   const [paretoPref, setParetoPref] = useState({ credits: 'max', workload: 'min' }); // 'max'|'min' for each
+  const [submissionStates, setSubmissionStates] = useState({});
+  const [ratingValues, setRatingValues] = useState({});
+
+  const updateSubmissionState = useCallback((courseKey, state) => {
+    if (!courseKey) return;
+    setSubmissionStates((prev) => {
+      if (state == null) {
+        if (!(courseKey in prev)) return prev;
+        const { [courseKey]: _omit, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [courseKey]: state };
+    });
+  }, []);
+
+  const updateRatingValues = useCallback((courseKey, values) => {
+    if (!courseKey) return;
+    setRatingValues((prev) => {
+      if (!values) {
+        if (!(courseKey in prev)) return prev;
+        const { [courseKey]: _omit, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [courseKey]: values };
+    });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -1030,11 +1212,13 @@ useEffect(() => {
 
         {viewMode === 'list' ? (
           <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gridTemplateColumns: '1fr', gap: '12px' }}>
-            {courses.map((c) => (
-              <li key={c.id ?? c.course_code ?? c.url}>
-                <article
-                  style={{
-                    border: '1px solid #e5e7eb',
+            {courses.map((c, idx) => {
+              const courseKey = courseKeyOf(c, idx);
+              return (
+                <li key={courseKey}>
+                  <article
+                    style={{
+                      border: '1px solid #e5e7eb',
                     borderRadius: 8,
                     padding: '12px',
                     boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
@@ -1075,10 +1259,18 @@ useEffect(() => {
                       <li><strong>Type:</strong> {c.type}</li>
                     )}
                   </ul>
-                  <ScoreSummary course={c} />
+                  <ScoreSummary
+                    course={c}
+                    layout="list"
+                    submissionState={submissionStates[courseKey]}
+                    onSubmissionStateChange={(state) => updateSubmissionState(courseKey, state)}
+                    savedValues={ratingValues[courseKey]}
+                    onValuesChange={(vals) => updateRatingValues(courseKey, vals)}
+                  />
                 </article>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         ) : (
           (() => {
@@ -1115,7 +1307,8 @@ useEffect(() => {
                   gap: '12px'
                 }}
               >
-                {arranged.map(({ c, rank }) => {
+                {arranged.map(({ c, rank, idx }) => {
+                  const courseKey = courseKeyOf(c, idx);
                   const t = maxRank <= 0 || rank === Infinity ? 1 : rank / maxRank; // 0..1, worst close to 1
                   const minL = 25, maxL = 90;
                   const lightness = Math.round(minL + t * (maxL - minL));
@@ -1123,7 +1316,7 @@ useEffect(() => {
                   const fg = textColorForBgHslLightness(lightness);
                   return (
                     <article
-                      key={c.id ?? c.course_code ?? c.url}
+                      key={courseKey}
                       style={{
                         border: '1px solid rgba(0,0,0,0.08)',
                         borderRadius: 8,
@@ -1162,7 +1355,15 @@ useEffect(() => {
                           <div><strong>Type:</strong> {c.type}</div>
                         )}
                       </div>
-                      <ScoreSummary course={c} theme={fg === '#fff' ? 'dark' : 'light'} />
+                      <ScoreSummary
+                        course={c}
+                        layout="grid"
+                        theme={fg === '#fff' ? 'dark' : 'light'}
+                        submissionState={submissionStates[courseKey]}
+                        onSubmissionStateChange={(state) => updateSubmissionState(courseKey, state)}
+                        savedValues={ratingValues[courseKey]}
+                        onValuesChange={(vals) => updateRatingValues(courseKey, vals)}
+                      />
                     </article>
                   );
                 })}

@@ -3,18 +3,25 @@ import react from '@vitejs/plugin-react-swc'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
+const PUBLIC_SUPABASE_KEYS = ['SUPABASE_URL', 'SUPABASE_ANON_KEY']
+
 export default defineConfig(async ({ mode }) => {
-  const devVars = mode === 'development' ? loadDevVars() : {}
-  injectIntoProcess(devVars)
+  const rawDevVars = loadDevVars()
+  const publicDevVars = pick(rawDevVars, PUBLIC_SUPABASE_KEYS)
+  const needsFallback = PUBLIC_SUPABASE_KEYS.some((key) => !process.env[key] && publicDevVars[key])
+
+  if (needsFallback) {
+    injectIntoProcess(publicDevVars)
+  }
 
   if (mode === 'development') {
-    await printSupabaseSnapshot(devVars)
+    await printSupabaseSnapshot(publicDevVars)
   }
 
   return {
     envPrefix: 'SUPABASE_',
     define: {
-      __SUPABASE_DEV_VARS__: JSON.stringify(devVars),
+      __SUPABASE_DEV_VARS__: JSON.stringify(publicDevVars),
     },
     plugins: [react()],
   }
@@ -51,6 +58,14 @@ function injectIntoProcess(vars) {
       process.env[key] = value
     }
   }
+}
+
+function pick(source, keys) {
+  const out = {}
+  for (const key of keys) {
+    if (key in source) out[key] = source[key]
+  }
+  return out
 }
 
 async function printSupabaseSnapshot(vars) {
